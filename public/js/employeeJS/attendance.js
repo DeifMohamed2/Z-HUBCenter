@@ -106,6 +106,7 @@ window.addEventListener('beforeunload', () => {
             .catch((error) => console.error('Error disconnecting from QZ Tray:', error));
     }
 });
+
 function printReceipt(data = {}) {
   const {
     attendanceCount = 0,
@@ -121,93 +122,52 @@ function printReceipt(data = {}) {
   // English labels for the receipt
   const englishLabels = {
     title: 'ZHUB CENTER',
-    phone: '01200077827',
+    phone: '01200077827', // Example phone number
     date: 'Date',
-    receiptNo: 'Receipt No.',
     teacherName: 'Teacher Name',
     courseName: 'Course Name',
     studentName: 'Student Name',
     studentCode: 'Student Code',
     amountPaid: 'Amount Paid',
-    sessionsCount: 'Sessions Count',
-    thankYou: 'Thank you for choosing ZHUB Center!',
-    footer: 'We wish you success in your educational journey',
+    thankYou: 'Thank you for choosing our ZHUB Center!',
   };
 
-  // Generate a unique receipt number
-  const receiptNumber = `R-${Date.now().toString().slice(-6)}`;
-
   // ESC/POS Printer Commands
-  const ESC = '\x1B';
-  const GS = '\x1D';
-  
-  const ESC_ALIGN_CENTER = `${ESC}\x61\x01`; // Center align
-  const ESC_ALIGN_LEFT = `${ESC}\x61\x00`;   // Left align
-  const ESC_ALIGN_RIGHT = `${ESC}\x61\x02`;  // Right align
-  const ESC_BOLD_ON = `${ESC}E\x01`;         // Bold text on
-  const ESC_BOLD_OFF = `${ESC}E\x00`;        // Bold text off
-  const ESC_UNDERLINE_ON = `${ESC}-\x01`;    // Underline on
-  const ESC_UNDERLINE_OFF = `${ESC}-\x00`;   // Underline off
-  const ESC_DOUBLE_SIZE = `${ESC}!\x30`;     // Double font size
-  const ESC_NORMAL_SIZE = `${ESC}!\x00`;     // Normal font size
-  const ESC_EMPHASIZED_ON = `${ESC}G\x01`;   // Emphasized text on
-  const ESC_EMPHASIZED_OFF = `${ESC}G\x00`;  // Emphasized text off
-  const ESC_CUT = `${GS}V\x42\x00`;          // Full paper cut
-  const ESC_FEED_LINE = '\x0A';              // Line feed
-  const ESC_RESET = `${ESC}@`;               // Reset printer
-  const ESC_FEED_AND_CUT = `${ESC}d\x05${ESC_CUT}`; // Feed 5 lines and cut
+  const ESC_ALIGN_CENTER = '\x1B\x61\x01'; // Center align
+  const ESC_BOLD = '\x1B\x45\x01'; // Bold text
+  const ESC_DOUBLE_SIZE = '\x1B\x21\x30'; // Double font size
+  const ESC_NORMAL_SIZE = '\x1B\x21\x00'; // Normal font size
+  const ESC_CUT = '\x1D\x56\x42\x00'; // Full paper cut
+  const ESC_FEED_LINE = '\x0A'; // Line feed
+  const ESC_RESET = '\x1B\x40'; // Reset printer
 
-  const lineSeparator = '─'.repeat(48);      // Table line separator
-  const headerSeparator = '═'.repeat(48);    // Bold section separator
-  const doubleLine = '═'.repeat(48);         // Double line separator
+  const lineSeparator = '-'.repeat(49); // Table line separator
+  const headerSeparator = '='.repeat(49); // Bold section separator
 
   function formatTableRow(field, value) {
     const totalWidth = 48;
-    const left = field.padEnd(24, ' ');
-    const right = value.toString().padStart(24, ' ');
-    return `${left}${right}`;
-  }
-
-  function formatCenteredText(text) {
-    const totalWidth = 48;
-    const padding = Math.max(0, Math.floor((totalWidth - text.length) / 2));
-    return ' '.repeat(padding) + text;
+    const left = field.padEnd(22, ' ');
+    const right = value.toString().padStart(22, ' ');
+    return `| ${left}|${right} |`;
   }
 
   // Build receipt content
-  let receiptContent = 
+  const receiptContent =
     ESC_RESET +
     ESC_ALIGN_CENTER +
-    ESC_BOLD_ON +
+    ESC_BOLD +
     ESC_DOUBLE_SIZE +
     englishLabels.title +
     ESC_FEED_LINE +
     ESC_NORMAL_SIZE +
-    ESC_BOLD_OFF +
-    `Tel: ${englishLabels.phone}` +
+    ESC_FEED_LINE +
+    ESC_ALIGN_CENTER +
+    englishLabels.phone +
     ESC_FEED_LINE +
     ESC_FEED_LINE +
-    doubleLine +
-    ESC_FEED_LINE +
-    ESC_BOLD_ON +
-    formatCenteredText('ATTENDANCE RECEIPT') +
-    ESC_BOLD_OFF +
-    ESC_FEED_LINE +
-    doubleLine +
-    ESC_FEED_LINE +
-    ESC_ALIGN_LEFT;
-
-  // Receipt details section
-  receiptContent += 
-    formatTableRow(englishLabels.receiptNo, receiptNumber) +
+    headerSeparator +
     ESC_FEED_LINE +
     formatTableRow(englishLabels.date, date) +
-    ESC_FEED_LINE +
-    lineSeparator +
-    ESC_FEED_LINE +
-    ESC_BOLD_ON +
-    'COURSE DETAILS' +
-    ESC_BOLD_OFF +
     ESC_FEED_LINE +
     lineSeparator +
     ESC_FEED_LINE +
@@ -216,49 +176,35 @@ function printReceipt(data = {}) {
       studentTeacher?.teacherName || 'N/A'
     ) +
     ESC_FEED_LINE +
+    lineSeparator +
+    ESC_FEED_LINE +
     formatTableRow(
       englishLabels.courseName,
       studentTeacher?.subjectName || 'N/A'
     ) +
     ESC_FEED_LINE +
-    lineSeparator +
-    ESC_FEED_LINE +
-    ESC_BOLD_ON +
-    'STUDENT DETAILS' +
-    ESC_BOLD_OFF +
-    ESC_FEED_LINE +
-    lineSeparator +
+    headerSeparator +
     ESC_FEED_LINE +
     formatTableRow(englishLabels.studentName, studentName) +
+    ESC_FEED_LINE +
+    lineSeparator +
     ESC_FEED_LINE +
     formatTableRow(englishLabels.studentCode, studentCode) +
     ESC_FEED_LINE +
     lineSeparator +
     ESC_FEED_LINE +
-    ESC_BOLD_ON +
-    'PAYMENT DETAILS' +
-    ESC_BOLD_OFF +
+    formatTableRow(englishLabels.amountPaid, `${amountPaid} EGP`) +
     ESC_FEED_LINE +
     lineSeparator +
     ESC_FEED_LINE +
-    formatTableRow(englishLabels.amountPaid, `${amountPaid} EGP`) +
+    formatTableRow('Sessions Count', attendanceCount) +
     ESC_FEED_LINE +
-    formatTableRow(englishLabels.sessionsCount, attendanceCount) +
-    ESC_FEED_LINE +
-    headerSeparator +
-    ESC_FEED_LINE +
+    lineSeparator +
     ESC_FEED_LINE +
     ESC_ALIGN_CENTER +
-    ESC_BOLD_ON +
+    ESC_BOLD +
+    ESC_NORMAL_SIZE +
     englishLabels.thankYou +
-    ESC_BOLD_OFF +
-    ESC_FEED_LINE +
-    englishLabels.footer +
-    ESC_FEED_LINE +
-    ESC_FEED_LINE +
-    doubleLine +
-    ESC_FEED_LINE +
-    formatCenteredText(`Printed: ${new Date().toLocaleString()}`) +
     ESC_FEED_LINE +
     ESC_FEED_LINE;
 
@@ -274,7 +220,7 @@ function printReceipt(data = {}) {
   const config = qz.configs.create('XP-80C'); // Replace with your printer name
   const printData = [
     { type: 'raw', format: 'command', data: receiptContent },
-    { type: 'raw', format: 'command', data: ESC_FEED_AND_CUT }, // Feed and cut paper
+    { type: 'raw', format: 'command', data: ESC_CUT }, // Cut paper
   ];
 
   qz.print(config, printData)
