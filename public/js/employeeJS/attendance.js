@@ -106,7 +106,6 @@ window.addEventListener('beforeunload', () => {
             .catch((error) => console.error('Error disconnecting from QZ Tray:', error));
     }
 });
-
 function printReceipt(data = {}) {
   const {
     attendanceCount = 0,
@@ -119,108 +118,121 @@ function printReceipt(data = {}) {
       new Date().toLocaleTimeString(),
   } = data;
 
-  // English labels for the receipt
-  const englishLabels = {
+  // Professional receipt configuration
+  const receiptConfig = {
     title: 'ZHUB CENTER',
-    phone: '01200077827', // Example phone number
-    date: 'Date',
-    teacherName: 'Teacher Name',
-    courseName: 'Course Name',
-    studentName: 'Student Name',
-    studentCode: 'Student Code',
-    amountPaid: 'Amount Paid',
-    thankYou: 'Thank you for choosing our ZHUB Center!',
+    phone: '01200077827',
+    address: 'Cairo, Egypt', // Added address
+    website: 'www.zhubcenter.com', // Added website
+    receiptWidth: 48, // Characters per line
+    labels: {
+      date: 'Date',
+      teacherName: 'Teacher',
+      courseName: 'Course',
+      studentName: 'Student',
+      studentCode: 'ID',
+      amountPaid: 'Amount',
+      sessionCount: 'Sessions',
+      thankYou: 'Thank you for choosing ZHUB CENTER!',
+      poweredBy: 'Powered by ZHUB Technology',
+    }
   };
 
   // ESC/POS Printer Commands
-  const ESC_ALIGN_CENTER = '\x1B\x61\x01'; // Center align
-  const ESC_BOLD = '\x1B\x45\x01'; // Bold text
-  const ESC_DOUBLE_SIZE = '\x1B\x21\x30'; // Double font size
-  const ESC_NORMAL_SIZE = '\x1B\x21\x00'; // Normal font size
-  const ESC_CUT = '\x1D\x56\x42\x00'; // Full paper cut
-  const ESC_FEED_LINE = '\x0A'; // Line feed
-  const ESC_RESET = '\x1B\x40'; // Reset printer
+  const ESC = {
+    RESET: '\x1B\x40',
+    ALIGN_LEFT: '\x1B\x61\x00',
+    ALIGN_CENTER: '\x1B\x61\x01',
+    ALIGN_RIGHT: '\x1B\x61\x02',
+    BOLD_ON: '\x1B\x45\x01',
+    BOLD_OFF: '\x1B\x45\x00',
+    DOUBLE_SIZE: '\x1B\x21\x30',
+    NORMAL_SIZE: '\x1B\x21\x00',
+    UNDERLINE_ON: '\x1B\x2D\x01',
+    UNDERLINE_OFF: '\x1B\x2D\x00',
+    CUT: '\x1D\x56\x42\x00',
+    FEED_LINE: '\x0A',
+  };
 
-  const lineSeparator = '-'.repeat(49); // Table line separator
-  const headerSeparator = '='.repeat(49); // Bold section separator
+  // Improved separators
+  const thinLine = '─'.repeat(receiptConfig.receiptWidth);
+  const doubleLine = '═'.repeat(receiptConfig.receiptWidth);
 
-  function formatTableRow(field, value) {
-    const totalWidth = 48;
-    const left = field.padEnd(22, ' ');
-    const right = value.toString().padStart(22, ' ');
-    return `| ${left}|${right} |`;
+  // Format table row with better alignment
+  function formatRow(label, value) {
+    const labelWidth = Math.floor(receiptConfig.receiptWidth * 0.6);
+    const valueWidth = receiptConfig.receiptWidth - labelWidth - 3;
+    
+    const formattedLabel = label.padEnd(labelWidth, ' ');
+    const formattedValue = value.toString().padStart(valueWidth, ' ');
+    
+    return `${formattedLabel} : ${formattedValue}`;
   }
 
-  // Build receipt content
-  const receiptContent =
-    ESC_RESET +
-    ESC_ALIGN_CENTER +
-    ESC_BOLD +
-    ESC_DOUBLE_SIZE +
-    englishLabels.title +
-    ESC_FEED_LINE +
-    ESC_NORMAL_SIZE +
-    ESC_FEED_LINE +
-    ESC_ALIGN_CENTER +
-    englishLabels.phone +
-    ESC_FEED_LINE +
-    ESC_FEED_LINE +
-    headerSeparator +
-    ESC_FEED_LINE +
-    formatTableRow(englishLabels.date, date) +
-    ESC_FEED_LINE +
-    lineSeparator +
-    ESC_FEED_LINE +
-    formatTableRow(
-      englishLabels.teacherName,
-      studentTeacher?.teacherName || 'N/A'
-    ) +
-    ESC_FEED_LINE +
-    lineSeparator +
-    ESC_FEED_LINE +
-    formatTableRow(
-      englishLabels.courseName,
-      studentTeacher?.subjectName || 'N/A'
-    ) +
-    ESC_FEED_LINE +
-    headerSeparator +
-    ESC_FEED_LINE +
-    formatTableRow(englishLabels.studentName, studentName) +
-    ESC_FEED_LINE +
-    lineSeparator +
-    ESC_FEED_LINE +
-    formatTableRow(englishLabels.studentCode, studentCode) +
-    ESC_FEED_LINE +
-    lineSeparator +
-    ESC_FEED_LINE +
-    formatTableRow(englishLabels.amountPaid, `${amountPaid} EGP`) +
-    ESC_FEED_LINE +
-    lineSeparator +
-    ESC_FEED_LINE +
-    formatTableRow('Sessions Count', attendanceCount) +
-    ESC_FEED_LINE +
-    lineSeparator +
-    ESC_FEED_LINE +
-    ESC_ALIGN_CENTER +
-    ESC_BOLD +
-    ESC_NORMAL_SIZE +
-    englishLabels.thankYou +
-    ESC_FEED_LINE +
-    ESC_FEED_LINE;
+  // Build receipt content with improved formatting
+  let receiptContent = '';
+  
+  // Header section
+  receiptContent += ESC.RESET + ESC.ALIGN_CENTER + ESC.BOLD_ON + ESC.DOUBLE_SIZE;
+  receiptContent += receiptConfig.title + ESC.FEED_LINE;
+  receiptContent += ESC.NORMAL_SIZE + ESC.FEED_LINE;
+  receiptContent += receiptConfig.phone + ESC.FEED_LINE;
+  receiptContent += receiptConfig.address + ESC.FEED_LINE;
+  receiptContent += receiptConfig.website + ESC.FEED_LINE;
+  receiptContent += ESC.FEED_LINE;
+  
+  // Receipt details
+  receiptContent += ESC.ALIGN_LEFT + doubleLine + ESC.FEED_LINE;
+  receiptContent += formatRow(receiptConfig.labels.date, date) + ESC.FEED_LINE;
+  receiptContent += thinLine + ESC.FEED_LINE;
+  
+  // Teacher and course info
+  receiptContent += formatRow(
+    receiptConfig.labels.teacherName,
+    studentTeacher?.teacherName || 'N/A'
+  ) + ESC.FEED_LINE;
+  
+  receiptContent += formatRow(
+    receiptConfig.labels.courseName,
+    studentTeacher?.subjectName || 'N/A'
+  ) + ESC.FEED_LINE;
+  
+  // Student info
+  receiptContent += doubleLine + ESC.FEED_LINE;
+  receiptContent += formatRow(receiptConfig.labels.studentName, studentName) + ESC.FEED_LINE;
+  receiptContent += formatRow(receiptConfig.labels.studentCode, studentCode) + ESC.FEED_LINE;
+  
+  // Payment info
+  receiptContent += thinLine + ESC.FEED_LINE;
+  receiptContent += ESC.BOLD_ON;
+  receiptContent += formatRow(receiptConfig.labels.amountPaid, `${amountPaid} EGP`) + ESC.FEED_LINE;
+  receiptContent += ESC.BOLD_OFF;
+  receiptContent += formatRow(receiptConfig.labels.sessionCount, attendanceCount) + ESC.FEED_LINE;
+  receiptContent += doubleLine + ESC.FEED_LINE + ESC.FEED_LINE;
+  
+  // Footer
+  receiptContent += ESC.ALIGN_CENTER + ESC.BOLD_ON;
+  receiptContent += receiptConfig.labels.thankYou + ESC.FEED_LINE;
+  receiptContent += ESC.BOLD_OFF + ESC.NORMAL_SIZE;
+  receiptContent += receiptConfig.labels.poweredBy + ESC.FEED_LINE;
+  
+  // Add timestamp at bottom
+  const timestamp = new Date().toLocaleTimeString();
+  receiptContent += timestamp + ESC.FEED_LINE;
+  receiptContent += ESC.FEED_LINE + ESC.FEED_LINE;
 
   console.log('Printing receipt:', receiptContent);
 
   // Print receipt
   if (!isQzConnected) {
-    message.textContent =
-      'QZ Tray is not connected. Please connect and try again.';
+    message.textContent = 'QZ Tray is not connected. Please connect and try again.';
     return;
   }
 
-  const config = qz.configs.create('XP-80C'); // Replace with your printer name
+  const config = qz.configs.create('XP-80C');
   const printData = [
     { type: 'raw', format: 'command', data: receiptContent },
-    { type: 'raw', format: 'command', data: ESC_CUT }, // Cut paper
+    { type: 'raw', format: 'command', data: ESC.CUT },
   ];
 
   qz.print(config, printData)
