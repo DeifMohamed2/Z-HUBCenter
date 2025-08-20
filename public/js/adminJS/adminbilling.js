@@ -12,7 +12,7 @@ const allBills = document.getElementById('allBills');
 async function uploadPhoto(photoFile) {
   const formData = new FormData();
   formData.append('file', photoFile);
-  formData.append('upload_preset', 'Elkably'); // Set in your Cloudinary dashboard
+  formData.append('upload_preset', 'ZHUB'); // Set in your Cloudinary dashboard
   formData.append('cloud_name', 'dusod9wxt'); // Replace with your Cloudinary cloud name
 
   const response = await fetch(

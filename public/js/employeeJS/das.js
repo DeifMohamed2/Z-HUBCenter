@@ -212,7 +212,7 @@ function printReceipt(data = {}) {
 
   // English labels for the receipt
   const englishLabels = {
-    title: 'ELKABLY CENTER',
+    title: 'ZHUB CENTER',
     phone: '\u260E +201234567890', // Unicode for phone icon and example phone number
     date: 'Date',
     teacherName: 'Teacher Name',

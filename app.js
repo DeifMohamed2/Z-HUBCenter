@@ -20,7 +20,7 @@ app.use(express.json());
 // const dbURI = 'mongodb://localhost:27017/ElkablyCenter';
 
 
-const dbURI ='mongodb+srv://deif:1qaz2wsx@3devway.aa4i6ga.mongodb.net/elkablyCenter?retryWrites=true&w=majority&appName=Cluster0';
+const dbURI ='mongodb+srv://deif:1qaz2wsx@3devway.aa4i6ga.mongodb.net/ZHUBCenter?retryWrites=true&w=majority&appName=Cluster0';
 mongoose
   .connect(dbURI)
   .then((result) => {

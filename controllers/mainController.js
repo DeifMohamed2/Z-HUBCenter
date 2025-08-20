@@ -7,7 +7,7 @@ const jwtSecret = process.env.JWT_SECRET;
 
 
 const homePage = (req, res) => {
-    res.render('index', { title: 'Elkably Center System' });
+    res.render('index', { title: 'ZHUB Center System' });
 }; 
 
 const singIn = async (req, res) => {
