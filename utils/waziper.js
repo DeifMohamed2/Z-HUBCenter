@@ -383,7 +383,7 @@ const StudentCodeUtils = {
     while (attempts < maxAttempts) {
       // Generate a random 4-digit code
       const randomCode = Math.floor(Math.random() * (9999 - 1000 + 1)) + 1000;
-      const fullCode = 'G'+randomCode;
+      const fullCode = randomCode.toString();
       
       // Check if this code already exists in the database
       const existingStudent = await Student.findOne({ studentCode: fullCode });

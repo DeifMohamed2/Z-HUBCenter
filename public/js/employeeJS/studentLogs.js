@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
         searchButton.disabled = false;
         
         // Check if it's a single exact match (by code)
-        if (data.length === 1 && (data[0].studentCode === searchTerm || data[0].studentCode === "G" + searchTerm)) {
+        if (data.length === 1 && data[0].studentCode === searchTerm) {
           // Direct load student data without showing search results
           loadStudentData(data[0]._id);
           return;

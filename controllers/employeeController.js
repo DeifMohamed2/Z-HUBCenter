@@ -385,7 +385,7 @@ const addStudent = async (req, res) => {
                 message += `🏫 *المدرسة:* ${populatedStudent.schoolName}\n`;
                 message += `📞 *رقم الهاتف:* ${populatedStudent.studentPhoneNumber}\n`;
                 message += `📞 *رقم ولي الأمر:* ${populatedStudent.studentParentPhone}\n`;
-                message += `🆔 *كود الطالب:* ${populatedStudent.studentCode.substring(1)}\n\n`;
+                message += `🆔 *كود الطالب:* ${populatedStudent.studentCode}\n\n`;
 
                 message += `📚 *تفاصيل الكورسات المسجلة:*\n`;
 
@@ -508,7 +508,7 @@ const searchStudent = async (req, res) => {
       
       if (isOnlyNumbers) {
         // If it's only numbers, search by phone number and create proper student code
-        const studentCode = "G"+searchTerm;
+        const studentCode = searchTerm;
         query.$or = [
           { studentPhoneNumber: searchTerm },
           { studentCode: studentCode }
@@ -866,12 +866,12 @@ const attendStudent = async (req, res) => {
       studentQuery = {
         $or: [
           { barCode: SearchStudent }, 
-          { studentCode: "G"+SearchStudent },
+          { studentCode: SearchStudent },
         ]
       };
     } else {
       // If it contains text, validate if it's a proper student code format
-      if (SearchStudent.includes('G')) {
+      if (false) { // Removed G prefix check
         studentQuery = {
           $or: [
             { barCode: SearchStudent }, 
