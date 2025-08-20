@@ -24,9 +24,9 @@ const dbURI ='mongodb+srv://deif:1qaz2wsx@3devway.aa4i6ga.mongodb.net/ZHUBCenter
 mongoose
   .connect(dbURI)
   .then((result) => {
-    app.listen(8600);
+    app.listen(8601);
 
-    console.log('connected to db and listening on port 8600');
+    console.log('connected to db and listening on port 8601');
   })
   .catch((err) => {
     console.log(err);
