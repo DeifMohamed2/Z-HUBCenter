@@ -62,6 +62,15 @@ router.put('/update-student/:id', authMiddleware, employeeController.updateStude
 
 router.post('/add-student', authMiddleware, employeeController.addStudent);
 
+router.post('/upload-excel-students', authMiddleware, employeeController.uploadExcelStudents);
+
+router.post('/test-upload', authMiddleware, (req, res) => {
+  console.log('Test upload received:', req.files);
+  res.json({ message: 'Test upload successful', files: req.files });
+});
+
+router.get('/download-excel-template', authMiddleware, employeeController.downloadExcelTemplate);
+
 router.get('/search-student', authMiddleware, employeeController.searchStudent);
 
 router.get('/send-wa', authMiddleware, employeeController.sendWa);

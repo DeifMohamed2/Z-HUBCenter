@@ -6,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const MongoStore = require('connect-mongo');
 const session = require('express-session');
 const cors = require('cors');
+const fileUpload = require('express-fileupload');
 
 const mainRoute = require('./routes/mainRoute');
 const adminRoute = require('./routes/adminRoute');
@@ -42,6 +43,11 @@ app.use(morgan('dev'));
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(fileUpload({
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  useTempFiles: false,
+  debug: true
+}));
 
 // let uri = ""; // Declare the 'uri' variable
 

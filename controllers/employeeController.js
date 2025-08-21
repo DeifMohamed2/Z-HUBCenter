@@ -9,7 +9,7 @@ const ExcelJS = require('exceljs');
 
 const waziper = require('../utils/waziper');
 const { StudentCodeUtils } = require('../utils/waziper');
-// const instanceId = '68536629B61C9';
+const instanceId = '68533DDE7D372';
 
 
 
@@ -413,6 +413,309 @@ const addStudent = async (req, res) => {
     } catch (error) {
         console.error('Error generating unique student code:', error);
         res.status(500).send({ message: 'خطأ في إنشاء كود الطالب، يرجى المحاولة مرة أخرى' });
+    }
+};
+
+const uploadExcelStudents = async (req, res) => {
+    try {
+        console.log('Upload request received:', req.files);
+        
+        if (!req.files || !req.files.excelFile) {
+            return res.status(400).json({ message: 'No Excel file uploaded' });
+        }
+
+        const excelFile = req.files.excelFile;
+        console.log('Excel file info:', {
+            name: excelFile.name,
+            size: excelFile.size,
+            mimetype: excelFile.mimetype,
+            hasData: !!excelFile.data,
+            hasTempPath: !!excelFile.tempFilePath
+        });
+        const { paymentType, selectedTeacherId, selectedCourseName, allStudentsAmount, columnNames } = req.body;
+        
+        // Parse column names
+        const columns = columnNames ? JSON.parse(columnNames) : {
+            studentName: 'User Name',
+            studentCode: 'Student Co',
+            studentPhoneNumber: 'Student Ph',
+            studentParentPhone: 'Parent Pho',
+            schoolName: 'School Nan'
+        };
+
+        // Validate required fields
+        if (!paymentType || !selectedTeacherId || !selectedCourseName) {
+            return res.status(400).json({ 
+                message: 'Payment type, teacher, and course are required' 
+            });
+        }
+
+        // Check if file is Excel
+        const allowedTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+            'application/octet-stream' // Some systems send this for Excel files
+        ];
+        
+        if (!allowedTypes.includes(excelFile.mimetype)) {
+            console.log('Invalid mimetype:', excelFile.mimetype);
+            return res.status(400).json({ 
+                message: `Please upload a valid Excel file (.xlsx or .xls). Received: ${excelFile.mimetype}` 
+            });
+        }
+        
+        // Check file size
+        if (excelFile.size === 0) {
+            return res.status(400).json({ 
+                message: 'File appears to be empty' 
+            });
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        
+        try {
+            // Handle file data properly
+            if (excelFile.data) {
+                await workbook.xlsx.load(excelFile.data);
+            } else if (excelFile.tempFilePath) {
+                await workbook.xlsx.readFile(excelFile.tempFilePath);
+            } else {
+                return res.status(400).json({ message: 'Invalid file data' });
+            }
+        } catch (loadError) {
+            console.error('Error loading Excel file:', loadError);
+            return res.status(400).json({ 
+                message: 'Error reading Excel file. Please make sure it\'s a valid Excel file (.xlsx or .xls)',
+                error: loadError.message 
+            });
+        }
+        
+        const worksheet = workbook.getWorksheet(1);
+
+        if (!worksheet) {
+            return res.status(400).json({ 
+                message: 'No worksheet found in the Excel file' 
+            });
+        }
+
+        const students = [];
+        const errors = [];
+
+        // Find column positions by header names
+        const headerRow = worksheet.getRow(1);
+        const columnPositions = {};
+        
+        headerRow.eachCell((cell, colNumber) => {
+            const headerValue = cell.value ? cell.value.toString().trim() : '';
+            if (headerValue === columns.studentName) columnPositions.studentName = colNumber;
+            if (headerValue === columns.studentCode) columnPositions.studentCode = colNumber;
+            if (headerValue === columns.studentPhoneNumber) columnPositions.studentPhoneNumber = colNumber;
+            if (headerValue === columns.studentParentPhone) columnPositions.studentParentPhone = colNumber;
+            if (headerValue === columns.schoolName) columnPositions.schoolName = colNumber;
+        });
+
+        // Validate that all required columns are found
+        const requiredColumns = ['studentName', 'studentPhoneNumber', 'studentParentPhone', 'schoolName'];
+        const missingColumns = requiredColumns.filter(col => !columnPositions[col]);
+        
+        if (missingColumns.length > 0) {
+            return res.status(400).json({ 
+                message: `Missing required columns: ${missingColumns.join(', ')}` 
+            });
+        }
+        
+        console.log('Column positions found:', columnPositions);
+
+        // Start from row 2 (skip header)
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Skip header row
+
+            const studentName = row.getCell(columnPositions.studentName).value;
+            const studentCode = columnPositions.studentCode ? row.getCell(columnPositions.studentCode).value : null;
+            const studentPhoneNumber = row.getCell(columnPositions.studentPhoneNumber).value;
+            const studentParentPhone = row.getCell(columnPositions.studentParentPhone).value;
+            const schoolName = row.getCell(columnPositions.schoolName).value;
+            const amountPaid = 0; // Amount will be set from the global amount field
+
+            // Validate required fields with specific details
+            const missingFields = [];
+            if (!studentName) missingFields.push('Student Name');
+            if (!studentPhoneNumber) missingFields.push('Student Phone');
+            if (!studentParentPhone) missingFields.push('Parent Phone');
+            if (!schoolName) missingFields.push('School Name');
+            
+            if (missingFields.length > 0) {
+                errors.push(`Row ${rowNumber}: Missing required fields: ${missingFields.join(', ')}`);
+                return;
+            }
+
+            // Validate phone numbers
+            if (studentPhoneNumber.toString().length !== 11) {
+                errors.push(`Row ${rowNumber}: Student phone number must be 11 digits`);
+                return;
+            }
+
+            if (studentParentPhone.toString().length !== 11) {
+                errors.push(`Row ${rowNumber}: Parent phone number must be 11 digits`);
+                return;
+            }
+
+            // Use the global amount for all students
+            const finalAmount = parseFloat(allStudentsAmount) || 0;
+            
+            students.push({
+                studentName: studentName.toString().trim(),
+                studentCode: studentCode ? studentCode.toString().trim() : null,
+                studentPhoneNumber: studentPhoneNumber.toString(),
+                studentParentPhone: studentParentPhone.toString(),
+                schoolName: schoolName.toString().trim(),
+                amountPaid: finalAmount,
+                paymentType,
+                selectedTeacherId,
+                selectedCourseName
+            });
+        });
+
+        if (errors.length > 0) {
+            return res.status(400).json({ 
+                message: 'Validation errors found', 
+                errors 
+            });
+        }
+
+        if (students.length === 0) {
+            return res.status(400).json({ 
+                message: 'No valid student data found in Excel file' 
+            });
+        }
+
+        // Process students one by one for better progress tracking
+        const results = {
+            success: [],
+            failed: []
+        };
+
+        for (let i = 0; i < students.length; i++) {
+            const studentData = students[i];
+            
+            try {
+                // Use student code from Excel, or generate one if not provided
+                let studentCode = studentData.studentCode;
+                if (!studentCode) {
+                    studentCode = await StudentCodeUtils.generateUniqueStudentCode(Student);
+                }
+
+                // Prepare teacher and course data
+                const selectedTeachers = [{
+                    teacherId: studentData.selectedTeacherId,
+                    courses: [{
+                        courseName: studentData.selectedCourseName,
+                        amountPay: studentData.amountPaid,
+                        registerPrice: 0,
+                        amountRemaining: 0
+                    }]
+                }];
+
+                const student = new Student({
+                    studentName: studentData.studentName,
+                    studentPhoneNumber: studentData.studentPhoneNumber,
+                    studentParentPhone: studentData.studentParentPhone,
+                    schoolName: studentData.schoolName,
+                    selectedTeachers,
+                    amountRemaining: paymentType === 'perSession' ? 0 : studentData.amountPaid,
+                    studentCode,
+                    paymentType: studentData.paymentType
+                });
+
+                await student.save();
+                results.success.push({
+                    name: studentData.studentName,
+                    code: studentCode
+                });
+
+            } catch (error) {
+                console.error(`Error saving student ${studentData.studentName}:`, error);
+                
+                let errorMessage = error.message;
+                
+                // Handle specific error types
+                if (error.code === 11000) {
+                    if (error.keyPattern && error.keyPattern.studentPhoneNumber) {
+                        errorMessage = `رقم الهاتف مكرر: ${studentData.studentPhoneNumber}`;
+                    } else if (error.keyPattern && error.keyPattern.studentCode) {
+                        errorMessage = `كود الطالب مكرر: ${studentData.studentCode}`;
+                    } else {
+                        errorMessage = 'بيانات مكررة في النظام';
+                    }
+                }
+                
+                results.failed.push({
+                    name: studentData.studentName,
+                    error: errorMessage
+                });
+            }
+        }
+
+        res.status(200).json({
+            message: `Successfully processed ${results.success.length} students`,
+            results
+        });
+
+    } catch (error) {
+        console.error('Error processing Excel file:', error);
+        res.status(500).json({ 
+            message: 'Error processing Excel file',
+            error: error.message 
+        });
+    }
+};
+
+const downloadExcelTemplate = async (req, res) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Students Template');
+
+        // Add headers
+        worksheet.columns = [
+            { header: 'User Name', key: 'studentName', width: 20 },
+            { header: 'Student Co', key: 'studentCode', width: 15 },
+            { header: 'Student Ph', key: 'studentPhoneNumber', width: 15 },
+            { header: 'Parent Pho', key: 'studentParentPhone', width: 15 },
+            { header: 'School Nan', key: 'schoolName', width: 20 }
+        ];
+
+        // Style the header row
+        worksheet.getRow(1).eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '1F4E78' }
+            };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        // Add sample data
+        worksheet.addRow(['Ahmed Mohamed', 'G1234', '01123456789', '01123456788', 'Al-Nour School']);
+        worksheet.addRow(['Fatima Ali', 'G5678', '01123456787', '01123456786', 'Al-Amal School']);
+
+        // Set response headers
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=students_template.xlsx');
+
+        // Write to response
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (error) {
+        console.error('Error generating Excel template:', error);
+        res.status(500).json({ message: 'Error generating Excel template' });
     }
 };
 
@@ -2835,6 +3138,8 @@ module.exports = {
   getStudent,
   updateStudent,
   addStudent,
+  uploadExcelStudents,
+  downloadExcelTemplate,
   getDeviceData,
   searchStudent,
   sendWa,
