@@ -12,6 +12,17 @@ const attendanceSchema = new Schema(
         feesApplied: { type: Number, required: false },
       },
     ],
+    studentsDeleted: [
+      {
+        student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
+        addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+        deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+        amountPaid: { type: Number, required: true },
+        feesApplied: { type: Number, required: false },
+        reason: { type: String, required: true },
+        deletedAt: { type: Date, default: Date.now },
+      },
+    ],
     teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
     course: { type: String, required: true },
     isFinalized: { type: Boolean, default: false },

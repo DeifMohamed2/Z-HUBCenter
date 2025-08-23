@@ -102,7 +102,9 @@ router.get('/getDeviceData', authMiddleware, employeeController.getDeviceData);
 
 router.get('/get-attended-students', authMiddleware, employeeController.getAttendedStudents);
 
-router.delete('/delete-attend-student/:id', authMiddleware, employeeController.deleteAttendStudent);
+router.post('/delete-attend-student/:id', authMiddleware, employeeController.deleteAttendStudent);
+
+router.get('/get-deleted-students', authMiddleware, employeeController.getDeletedStudents);
 
 router.get('/download-attendance-excel', authMiddleware, employeeController.downloadAttendanceExcel);
 

@@ -15,6 +15,32 @@ const instanceId = '68533DDE7D372';
 
 const dashboard = (req, res) => {
   
+  // Function to update attendance fees
+  // const updateAttendanceFees = async () => {
+  //   try {
+  //     // Update all attendance records with the specified attendance ID to have fees of 50
+  //     const result = await Attendance.updateMany(
+  //       { _id: "68a6f8cbdd8be061cb03e28a" },
+  //       { $set: { "studentsPresent.$[].feesApplied": 50 } }
+  //     );
+      
+  //     console.log(`Updated ${result.modifiedCount} attendance records`);
+  //     console.log({
+  //       success: true,
+  //       message: `Successfully updated fees for ${result.modifiedCount} attendance records`,
+  //       modifiedCount: result.modifiedCount
+  //     });
+  //   } catch (error) {
+  //     console.error('Error updating attendance fees:', error);
+  //     console.log({
+  //       success: false,
+  //       message: 'Error updating attendance fees',
+  //       error: error.message
+  //     });
+  //   }
+  // };
+
+  // updateAttendanceFees();
 
 
   // Dashboard data preparation
@@ -1511,11 +1537,49 @@ const editStudentAmountRemainingAndPaid = async (req, res) => {
   }
 };
 
+const getDeletedStudents = async (req, res) => {
+  try {
+    const { teacherId, courseName } = req.query;
+    if (!teacherId || !courseName) {
+      return res.status(400).json({ message: 'Teacher ID and course name are required' });
+    }
+
+    // Fetch attendance record for today
+    const attendance = await Attendance.findOne({
+      date: getDateTime(),
+      teacher: teacherId,
+      course: courseName,
+    })
+      .populate('studentsDeleted.student')
+      .populate('studentsDeleted.addedBy', 'employeeName')
+      .populate('studentsDeleted.deletedBy', 'employeeName');
+
+    if (!attendance) {
+      return res.status(404).json({ message: 'No attendance record found' });
+    }
+
+    res.status(200).json({
+      deletedStudents: attendance.studentsDeleted,
+      message: 'Deleted students retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error fetching deleted students:', error);
+    res.status(500).json({ message: 'An error occurred while fetching deleted students' });
+  }
+};
+
 const deleteAttendStudent = async (req, res) => {
   const { id } = req.params;
-  const { teacherId, courseName } = req.query;
+  const { teacherId, courseName, reason } = req.body;
+  const employeeId = req.employeeId;
+  
   try {
-    console.log('Deleting student:', id , 'Teacher:', teacherId, 'Course:', courseName);
+    console.log('Deleting student:', id , 'Teacher:', teacherId, 'Course:', courseName, 'Reason:', reason);
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ message: 'Reason for deletion is required' });
+    }
 
     // Find the attendance record for today and the student being removed
     const attendance = await Attendance.findOne(
@@ -1524,9 +1588,9 @@ const deleteAttendStudent = async (req, res) => {
         teacher: teacherId,
         course: courseName,
         'studentsPresent.student': id 
-      },
-      { 'studentsPresent.$': 1 } // Fetch only the matching student
+      }
     );
+    
     console.log('Attendance:', attendance);
     if (!attendance || !attendance.studentsPresent.length) {
       return res
@@ -1534,25 +1598,48 @@ const deleteAttendStudent = async (req, res) => {
         .json({ message: 'Student not found in attendance' });
     }
 
-
-    // Remove student from attendance
-    const updateResult = await Attendance.updateOne(
-      { date: getDateTime(),
-        teacher: teacherId,
-        course: courseName
-      },
-      {
-        $pull: { studentsPresent: { student: id } },
-      }
+    // Find the student record that will be deleted
+    const studentToDelete = attendance.studentsPresent.find(
+      sp => sp.student.toString() === id
     );
 
-    if (updateResult.modifiedCount === 0) {
-      return res.status(404).json({ message: 'Failed to remove student' });
+    if (!studentToDelete) {
+      return res.status(404).json({ message: 'Student not found in attendance' });
     }
 
+    // Add student to deleted students array with reason
+    attendance.studentsDeleted.push({
+      student: studentToDelete.student,
+      addedBy: studentToDelete.addedBy,
+      deletedBy: employeeId,
+      amountPaid: studentToDelete.amountPaid,
+      feesApplied: studentToDelete.feesApplied,
+      reason: reason.trim(),
+      deletedAt: new Date()
+    });
+
+    // Remove student from present students
+    attendance.studentsPresent = attendance.studentsPresent.filter(
+      sp => sp.student.toString() !== id
+    );
+
+    // Recalculate totals
+    attendance.totalAmount = attendance.studentsPresent.reduce(
+      (sum, s) => sum + s.amountPaid,
+      0
+    );
+    attendance.totalFees = attendance.studentsPresent.reduce(
+      (sum, s) => sum + s.feesApplied,
+      0
+    );
+    attendance.netProfitToTeacher.amount = attendance.totalAmount - attendance.totalFees;
+    attendance.netProfitToTeacher.feesAmount = attendance.totalFees;
+
+    // Save the updated attendance record
+    await attendance.save();
 
     res.status(200).json({
-      message: 'Student removed from attendance',
+      message: 'Student removed from attendance and reason recorded',
     });
   } catch (error) {
     console.error('Error deleting student from attendance:', error);
@@ -1579,6 +1666,9 @@ const downloadAttendanceExcel = async (req, res) => {
     })
       .populate('studentsPresent.student')
       .populate('studentsPresent.addedBy', 'employeeName')
+      .populate('studentsDeleted.student')
+      .populate('studentsDeleted.addedBy', 'employeeName')
+      .populate('studentsDeleted.deletedBy', 'employeeName')
       .populate('invoices.addedBy', 'employeeName')
       .populate('teacher');
 
@@ -1746,9 +1836,58 @@ const downloadAttendanceExcel = async (req, res) => {
       rowIndex++; // Space before totals
     }
 
+    // Add deleted students section if any exist
+    if (attendance.studentsDeleted && attendance.studentsDeleted.length > 0) {
+      rowIndex++; // Space before deleted students
+      
+      // Add deleted students section header
+      worksheet.mergeCells(`A${rowIndex}:E${rowIndex}`);
+      worksheet.getCell(`A${rowIndex}`).value = 'Deleted Students';
+      worksheet.getCell(`A${rowIndex}`).style = styles.header;
+      rowIndex++;
 
+      // Add deleted students headers
+      worksheet.getRow(rowIndex).values = [
+        'Student Name',
+        'Student Code',
+        'Amount Paid (EGP)',
+        'Deleted By',
+        'Reason',
+        'Deleted At'
+      ];
+      worksheet.getRow(rowIndex).eachCell((cell) => (cell.style = styles.columnHeader));
+      rowIndex++;
 
-    
+      // Add deleted students data
+      attendance.studentsDeleted.forEach(({ student, amountPaid, deletedBy, reason, deletedAt }) => {
+        if (!student) return;
+
+        worksheet.getRow(rowIndex).values = [
+          student.studentName,
+          student.studentCode,
+          amountPaid,
+          deletedBy.employeeName,
+          reason,
+          new Date(deletedAt).toLocaleString('ar-EG')
+        ];
+        worksheet.getRow(rowIndex).eachCell((cell) => {
+          cell.style = {
+            ...styles.cell,
+            fill: {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF2CC' } // Light yellow background for deleted students
+            },
+            font: {
+              color: { argb: 'FF6B35' }, // Orange text for deleted students
+              italic: true
+            }
+          };
+        });
+        rowIndex++;
+      });
+    }
+
     rowIndex++; // Add space
 
     // Add summary rows
@@ -1787,7 +1926,9 @@ const downloadAttendanceExcel = async (req, res) => {
       { width: 30 }, // Title/Student Name
       { width: 20 }, // Value/Amount
       { width: 20 }, // Amount Paid
-      { width: 20 }  // Student Code
+      { width: 20 }, // Student Code
+      { width: 25 }, // Deleted By
+      { width: 40 }  // Reason
     ];
 
     // Send file via WhatsApp API
@@ -3158,6 +3299,7 @@ module.exports = {
   attendStudent,
   getAttendedStudents,
   deleteAttendStudent,
+  getDeletedStudents,
   editStudentAmountRemainingAndPaid,
   downloadAttendanceExcel,
   selectDevice,

@@ -15,6 +15,7 @@ const netProfitToTeacher = document.getElementById('netProfit');
 const invoiceForm = document.getElementById('invoiceForm');
 const invoiceTBody = document.querySelector('#invoiceTable tbody');
 const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+const viewDeletedStudentsBtn = document.getElementById('viewDeletedStudentsBtn');
 const mockCheck = document.getElementById('mockCheck');
 
 const deviceSelect = document.getElementById('deviceSelect');
@@ -346,7 +347,8 @@ const addStudentsToTable = (students, teacherId, courseName) => {
          const row = event.target.closest('tr');
          const studentId =
            row.querySelector('.amountRemaining').dataset.studentId;
-         deleteStudent(studentId , teacherId , courseName);
+         const studentName = row.querySelector('td:first-child').textContent;
+         showDeleteReasonDialog(studentId, teacherId, courseName, studentName);
        });
 
        // Event listeners remain the same
@@ -354,14 +356,52 @@ const addStudentsToTable = (students, teacherId, courseName) => {
      });
 };
 
-// Function to delete student
+// Function to show delete reason dialog
+function showDeleteReasonDialog(studentId, teacherId, courseName, studentName) {
+  Swal.fire({
+    title: 'حذف الطالب من الحضور',
+    html: `
+      <p>هل أنت متأكد من حذف الطالب <strong>${studentName}</strong> من الحضور؟</p>
+      <div class="form-group">
+        <label for="deleteReason" class="form-label">سبب الحذف:</label>
+        <textarea id="deleteReason" class="form-control" rows="3" placeholder="أدخل سبب الحذف..." required></textarea>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: 'حذف',
+    cancelButtonText: 'إلغاء',
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    focusConfirm: false,
+    preConfirm: () => {
+      const reason = document.getElementById('deleteReason').value.trim();
+      if (!reason) {
+        Swal.showValidationMessage('يجب إدخال سبب الحذف');
+        return false;
+      }
+      return reason;
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      deleteStudent(studentId, teacherId, courseName, result.value);
+    }
+  });
+}
 
-async function deleteStudent(studentId , teacherId , courseName) {
+// Function to delete student
+async function deleteStudent(studentId, teacherId, courseName, reason) {
     try {
-        
         spinner.classList.remove('d-none');
-        const response = await fetch(`/employee/delete-attend-student/${studentId}?teacherId=${teacherId}&courseName=${courseName}`, {
-          method: 'DELETE',
+        const response = await fetch(`/employee/delete-attend-student/${studentId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            teacherId,
+            courseName,
+            reason
+          }),
         });
         const responseData = await response.json();
         if (response.ok) {
@@ -369,18 +409,40 @@ async function deleteStudent(studentId , teacherId , courseName) {
         getStudents();
         searchStudent.focus();
         spinner.classList.add('d-none');
-        message.textContent = responseData.message
+        message.textContent = responseData.message;
+        
+        // Show success toast
+        Swal.fire({
+          icon: 'success',
+          title: 'تم الحذف بنجاح',
+          text: responseData.message,
+          timer: 3000,
+          showConfirmButton: false
+        });
         } else {
-        alert(responseData.message);
         searchStudent.focus();
         spinner.classList.add('d-none');
-        message.textContent = responseData.message
+        message.textContent = responseData.message;
+        
+        // Show error toast
+        Swal.fire({
+          icon: 'error',
+          title: 'خطأ في الحذف',
+          text: responseData.message
+        });
         }
     } catch (error) {
         console.error('Error deleting student:', error);
         searchStudent.focus();
         spinner.classList.add('d-none');
         message.textContent = 'An error occurred. Please try again later.';
+        
+        // Show error toast
+        Swal.fire({
+          icon: 'error',
+          title: 'خطأ في الحذف',
+          text: 'An error occurred. Please try again later.'
+        });
     }
 }
 
@@ -416,6 +478,97 @@ async function editStudentAmountRemainingAndAmountPaid(studentId, amount,amountP
         spinner.classList.add('d-none');
         message.textContent = 'An error occurred. Please try again later.';
     }
+}
+
+// View Deleted Students
+viewDeletedStudentsBtn.addEventListener('click', async () => {
+  try {
+    const courseSelection = courseSelction.value.split('_');
+    const teacherId = courseSelection[0];
+    const courseName = courseSelection[1];
+    
+    const response = await fetch(`/employee/get-deleted-students?teacherId=${teacherId}&courseName=${courseName}`);
+    const responseData = await response.json();
+    
+    if (response.ok) {
+      if (responseData.deletedStudents && responseData.deletedStudents.length > 0) {
+        showDeletedStudentsModal(responseData.deletedStudents);
+      } else {
+        Swal.fire({
+          icon: 'info',
+          title: 'لا يوجد طلاب محذوفين',
+          text: 'لم يتم حذف أي طلاب من الحضور اليوم'
+        });
+      }
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'خطأ',
+        text: responseData.message
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching deleted students:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'خطأ',
+      text: 'حدث خطأ أثناء جلب الطلاب المحذوفين'
+    });
+  }
+});
+
+// Function to show deleted students modal
+function showDeletedStudentsModal(deletedStudents) {
+  let tableRows = '';
+  deletedStudents.forEach((deletedStudent, index) => {
+    const student = deletedStudent.student;
+    const addedBy = deletedStudent.addedBy;
+    const deletedBy = deletedStudent.deletedBy;
+    const deletedAt = new Date(deletedStudent.deletedAt).toLocaleString('ar-EG');
+    
+    tableRows += `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${student.studentName}</td>
+        <td>${student.studentCode}</td>
+        <td>${deletedStudent.amountPaid}</td>
+        <td>${deletedStudent.feesApplied || 0}</td>
+        <td>${addedBy.employeeName}</td>
+        <td>${deletedBy.employeeName}</td>
+        <td>${deletedAt}</td>
+        <td>${deletedStudent.reason}</td>
+      </tr>
+    `;
+  });
+
+  Swal.fire({
+    title: 'الطلاب المحذوفين من الحضور',
+    html: `
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>اسم الطالب</th>
+              <th>كود الطالب</th>
+              <th>المبلغ المدفوع</th>
+              <th>الرسوم</th>
+              <th>أضيف بواسطة</th>
+              <th>حذف بواسطة</th>
+              <th>تاريخ الحذف</th>
+              <th>سبب الحذف</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </div>
+    `,
+    width: '80%',
+    confirmButtonText: 'إغلاق',
+    confirmButtonColor: '#3085d6'
+  });
 }
 
 // download Excel File
