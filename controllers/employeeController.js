@@ -225,7 +225,7 @@ const billing_Get = (req, res) => {
 }
 
 const addBill = (req, res) => {
-    const { billName, billAmount, billNote, billPhoto } = req.body;
+    const { billName, billAmount, billNote, billPhoto, billCategory } = req.body;
 
     if (billAmount < 0) {
         res.status(400).send({ message: 'لازم Amount يكون اكبر من 0' });
@@ -237,11 +237,17 @@ const addBill = (req, res) => {
         return
     }
 
+    if (!billCategory) {
+        res.status(400).send({ message: 'يجب اختيار فئة الفاتورة' });
+        return
+    }
+
     const bill = new Billing({
       billName,
       billAmount,
       billNote,
       billPhoto,
+      billCategory,
       employee: req.employeeId,
     });
 
@@ -458,15 +464,15 @@ const uploadExcelStudents = async (req, res) => {
             hasData: !!excelFile.data,
             hasTempPath: !!excelFile.tempFilePath
         });
-        const { paymentType, selectedTeacherId, selectedCourseName, allStudentsAmount, columnNames } = req.body;
+        const { paymentType, selectedTeacherId, selectedCourseName, allStudentsAmount } = req.body;
         
-        // Parse column names
-        const columns = columnNames ? JSON.parse(columnNames) : {
+        // Use the new fixed column names
+        const columns = {
             studentName: 'User Name',
-            studentCode: 'Student Co',
-            studentPhoneNumber: 'Student Ph',
-            studentParentPhone: 'Parent Pho',
-            schoolName: 'School Nan'
+            studentCode: 'Student Code',
+            studentPhoneNumber: 'Phone Number',
+            studentParentPhone: 'Parent Phone Number',
+            schoolName: 'School Name'
         };
 
         // Validate required fields
@@ -528,16 +534,43 @@ const uploadExcelStudents = async (req, res) => {
         const errors = [];
 
         // Find column positions by header names
-        const headerRow = worksheet.getRow(1);
+        const headerRow = worksheet.getRow(1); // Changed back to row 1 since we're using a simple template
         const columnPositions = {};
+        
+        console.log('Looking for columns:', columns);
+        console.log('Expected column names:', {
+            'User Name': columns.studentName,
+            'Student Code': columns.studentCode,
+            'Phone Number': columns.studentPhoneNumber,
+            'Parent Phone Number': columns.studentParentPhone,
+            'School Name': columns.schoolName
+        });
         
         headerRow.eachCell((cell, colNumber) => {
             const headerValue = cell.value ? cell.value.toString().trim() : '';
-            if (headerValue === columns.studentName) columnPositions.studentName = colNumber;
-            if (headerValue === columns.studentCode) columnPositions.studentCode = colNumber;
-            if (headerValue === columns.studentPhoneNumber) columnPositions.studentPhoneNumber = colNumber;
-            if (headerValue === columns.studentParentPhone) columnPositions.studentParentPhone = colNumber;
-            if (headerValue === columns.schoolName) columnPositions.schoolName = colNumber;
+            console.log(`Column ${colNumber}: "${headerValue}"`);
+            
+            // Map column headers to positions
+            if (headerValue === columns.studentName) {
+                columnPositions.studentName = colNumber;
+                console.log(`Found studentName at column ${colNumber}`);
+            }
+            if (headerValue === columns.studentCode) {
+                columnPositions.studentCode = colNumber;
+                console.log(`Found studentCode at column ${colNumber}`);
+            }
+            if (headerValue === columns.studentPhoneNumber) {
+                columnPositions.studentPhoneNumber = colNumber;
+                console.log(`Found studentPhoneNumber at column ${colNumber}`);
+            }
+            if (headerValue === columns.studentParentPhone) {
+                columnPositions.studentParentPhone = colNumber;
+                console.log(`Found studentParentPhone at column ${colNumber}`);
+            }
+            if (headerValue === columns.schoolName) {
+                columnPositions.schoolName = colNumber;
+                console.log(`Found schoolName at column ${colNumber}`);
+            }
         });
 
         // Validate that all required columns are found
@@ -545,22 +578,37 @@ const uploadExcelStudents = async (req, res) => {
         const missingColumns = requiredColumns.filter(col => !columnPositions[col]);
         
         if (missingColumns.length > 0) {
+            console.log('Missing columns:', missingColumns);
+            console.log('Available columns:', Object.keys(columnPositions));
+            console.log('Column positions:', columnPositions);
+            
+            // Map internal field names to actual Excel column names for better error messages
+            const columnNameMap = {
+                'studentName': 'User Name',
+                'studentPhoneNumber': 'Phone Number',
+                'studentParentPhone': 'Parent Phone Number',
+                'schoolName': 'School Name'
+            };
+            
+            const missingColumnNames = missingColumns.map(col => columnNameMap[col] || col);
+            
             return res.status(400).json({ 
-                message: `Missing required columns: ${missingColumns.join(', ')}` 
+                message: `Missing required columns: ${missingColumnNames.join(', ')}. Please check your Excel file headers.` 
             });
         }
         
         console.log('Column positions found:', columnPositions);
 
-        // Start from row 2 (skip header)
+        // Start from row 2 (skip header row)
         worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber === 1) return; // Skip header row
+            if (rowNumber <= 1) return; // Skip header row
 
-            const studentName = row.getCell(columnPositions.studentName).value;
+            // Extract values with proper error handling
+            const studentName = columnPositions.studentName ? row.getCell(columnPositions.studentName).value : null;
             const studentCode = columnPositions.studentCode ? row.getCell(columnPositions.studentCode).value : null;
-            const studentPhoneNumber = row.getCell(columnPositions.studentPhoneNumber).value;
-            const studentParentPhone = row.getCell(columnPositions.studentParentPhone).value;
-            const schoolName = row.getCell(columnPositions.schoolName).value;
+            const studentPhoneNumber = columnPositions.studentPhoneNumber ? row.getCell(columnPositions.studentPhoneNumber).value : null;
+            const studentParentPhone = columnPositions.studentParentPhone ? row.getCell(columnPositions.studentParentPhone).value : null;
+            const schoolName = columnPositions.schoolName ? row.getCell(columnPositions.schoolName).value : null;
             const amountPaid = 0; // Amount will be set from the global amount field
 
             // Validate required fields with specific details
@@ -701,23 +749,23 @@ const downloadExcelTemplate = async (req, res) => {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Students Template');
 
-        // Add headers
+        // Add headers with the new column names
         worksheet.columns = [
-            { header: 'User Name', key: 'studentName', width: 20 },
-            { header: 'Student Co', key: 'studentCode', width: 15 },
-            { header: 'Student Ph', key: 'studentPhoneNumber', width: 15 },
-            { header: 'Parent Pho', key: 'studentParentPhone', width: 15 },
-            { header: 'School Nan', key: 'schoolName', width: 20 }
+            { header: 'User Name', key: 'studentName', width: 25 },
+            { header: 'Student Code', key: 'studentCode', width: 15 },
+            { header: 'Phone Number', key: 'studentPhoneNumber', width: 18 },
+            { header: 'Parent Phone Number', key: 'studentParentPhone', width: 18 },
+            { header: 'School Name', key: 'schoolName', width: 25 }
         ];
 
-        // Style the header row
+        // Style the header row (row 1)
         worksheet.getRow(1).eachCell((cell) => {
-            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 };
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
             cell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: '1F4E78' }
+                fgColor: { argb: '4472C4' }
             };
             cell.border = {
                 top: { style: 'thin' },
@@ -727,9 +775,37 @@ const downloadExcelTemplate = async (req, res) => {
             };
         });
 
-        // Add sample data
-        worksheet.addRow(['Ahmed Mohamed', 'G1234', '01123456789', '01123456788', 'Al-Nour School']);
-        worksheet.addRow(['Fatima Ali', 'G5678', '01123456787', '01123456786', 'Al-Amal School']);
+        // Add sample data with proper formatting
+        worksheet.addRow(['أحمد محمد علي', 'G1234', '01123456789', '01123456788', 'مدرسة النور']);
+        worksheet.addRow(['فاطمة علي أحمد', 'G5678', '01123456787', '01123456786', 'مدرسة الأمل']);
+        worksheet.addRow(['محمد أحمد حسن', 'G9012', '01123456785', '01123456784', 'مدرسة المستقبل']);
+        worksheet.addRow(['سارة أحمد محمد', 'G3456', '01123456783', '01123456782', 'مدرسة النجاح']);
+        worksheet.addRow(['علي محمد أحمد', 'G7890', '01123456781', '01123456780', 'مدرسة التميز']);
+
+        // Style the data rows (rows 2-6)
+        for (let i = 2; i <= 6; i++) {
+            worksheet.getRow(i).eachCell((cell) => {
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                cell.font = { size: 11 };
+                cell.border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            });
+        }
+
+        // Add footer with instructions
+        worksheet.mergeCells('A8:E8');
+        worksheet.getCell('A8').value = '📋 تعليمات: املأ البيانات في الصفوف التالية، تأكد من أن أرقام الهواتف مكونة من 11 رقم وأن كود الطالب يبدأ بـ G';
+        worksheet.getCell('A8').font = { bold: true, size: 11, color: { argb: '0066CC' } };
+        worksheet.getCell('A8').alignment = { horizontal: 'center', vertical: 'middle' };
+        worksheet.getCell('A8').fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'E6F3FF' }
+        };
 
         // Set response headers
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -2135,6 +2211,18 @@ const getAttendanceByDate = async (req, res) => {
       invoicesByTeacher = {};
 
     attendances.forEach((attendance) => {
+      // Skip attendance records without a teacher
+      if (!attendance.teacher) {
+        console.log('Skipping attendance record without teacher:', attendance._id);
+        return;
+      }
+
+      // Additional safety check for studentsPresent
+      if (!attendance.studentsPresent || !Array.isArray(attendance.studentsPresent)) {
+        console.log('Skipping attendance record with invalid studentsPresent:', attendance._id);
+        return;
+      }
+
       const teacherId = attendance.teacher._id.toString();
 
       if (!teacherData[teacherId]) {
@@ -2160,6 +2248,12 @@ const getAttendanceByDate = async (req, res) => {
 
           totalAmount += amountPaid;
           totalFees += feesApplied;
+
+          // Skip if addedBy is null or undefined
+          if (!addedBy) {
+            console.log('Skipping student record without addedBy:', student);
+            return;
+          }
 
           const employeeId = addedBy._id.toString();
           if (!employeeData[employeeId]) {
@@ -2285,6 +2379,18 @@ const downloadAttendanceExcelByDate = async (req, res) => {
 
     // Group Data
     attendances.forEach((attendance) => {
+      // Skip attendance records without a teacher
+      if (!attendance.teacher) {
+        console.log('Skipping attendance record without teacher:', attendance._id);
+        return;
+      }
+
+      // Additional safety check for studentsPresent
+      if (!attendance.studentsPresent || !Array.isArray(attendance.studentsPresent)) {
+        console.log('Skipping attendance record with invalid studentsPresent:', attendance._id);
+        return;
+      }
+
       const teacherId = attendance.teacher._id.toString();
       const teacherName = attendance.teacher.teacherName;
       const subjectName = attendance.teacher.subjectName;
@@ -2308,6 +2414,12 @@ const downloadAttendanceExcelByDate = async (req, res) => {
           teacherData[teacherId].totalFees += feesApplied;
           totalAmount += amountPaid;
           totalFees += feesApplied;
+
+          // Skip if addedBy is null or undefined
+          if (!addedBy) {
+            console.log('Skipping student record without addedBy:', student);
+            return;
+          }
 
           const employeeId = addedBy._id.toString();
           if (!employeeData[employeeId]) {
@@ -2338,7 +2450,7 @@ const downloadAttendanceExcelByDate = async (req, res) => {
             invoiceDetails,
             invoiceAmount,
             time,
-            addedBy: addedBy.employeeName,
+            addedBy: addedBy?.employeeName || 'Unknown',
           });
 
           if (!invoiceData[teacherId]) {

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+    <%- include("./partials/head.ejs") %>
+<body class="g-sidenav-show rtl  bg-gray-100">
+  <style>
+    .filters .form-control,
+    .filters .form-select {
+      border: 1px solid #000 !important;
+      box-shadow: none !important;
+      background-color: #fff !important;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .filters .form-control:hover,
+    .filters .form-select:hover,
+    .filters .form-control:focus,
+    .filters .form-select:focus {
+      border-color: #28a745 !important;
+      box-shadow: 0 0 0 .1rem rgba(40,167,69,.15) !important;
+    }
+    .filters { gap: .5rem; flex-wrap: nowrap; }
+    @media (max-width: 992px){ .filters { flex-wrap: wrap; } }
+    .filters .btn { border-width: 2px !important; height: 38px; padding: 6px 12px; }
+  </style>
+  <%- include("./partials/aside.ejs") %>
+  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg ">
+    <nav class="navbar navbar-main navbar-expand-lg px-0 mx-3 shadow-none border-radius-xl" id="navbarBlur" data-scroll="true">
+      <div class="container-fluid pt-1 px-3">
+        <h4>Students</h4>
+      </div>
+    </nav>
+    <div class="container-fluid py-2">
+      <div class="row">
+        <div class="col-12">
+          <div class="card my-4">
+            <div class="card-header pb-0 p-3">
+              <div class="row">
+                <div class="col-6 d-flex align-items-center">
+                  <h5 class="mb-0">All Students</h5>
+                </div>
+                <div class="col-12 text-end">
+                  <div class="filters d-flex justify-content-end align-items-center">
+                    <input type="text" class="form-control d-inline-block w-auto border-0 shadow-none" id="searchInput" placeholder="Search name/code/phone">
+                    <select class="form-select d-inline-block w-auto border-0 shadow-none" id="paymentTypeFilter">
+                      <option value="">Payment: All</option>
+                      <option value="perSession">Per Session</option>
+                      <option value="perCourse">Per Course</option>
+                    </select>
+                    <select class="form-select d-inline-block w-auto border-0 shadow-none" id="teacherFilter">
+                      <option value="">Teacher: All</option>
+                    </select>
+                    <input type="text" class="form-control d-inline-block w-auto border-0 shadow-none" id="courseFilter" placeholder="Course (optional)">
+                    <input type="date" class="form-control d-inline-block w-auto border-0 shadow-none" id="startDateFilter">
+                    <input type="date" class="form-control d-inline-block w-auto border-0 shadow-none" id="endDateFilter">
+                    <button class="btn btn-outline-dark border-2" id="applyFiltersBtn">Filter</button>
+                    <button class="btn btn-outline-secondary border-2" id="resetFiltersBtn">Reset</button>
+                    <button class="btn btn-outline-success border-2" id="exportBtn">Export</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-body px-0 pb-2">
+              <div class="table-responsive p-0">
+                <table class="table align-items-center mb-0" id="adminStudentsTable">
+                  <thead>
+                    <tr>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7">#</th>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7">Name</th>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7">Phone</th>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7">Parent Phone</th>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7">Code</th>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7">Payment</th>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7">Added</th>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+              </div>
+              <div class="d-flex justify-content-between align-items-center px-3 mt-3">
+                <div class="text-muted" id="tableInfo"></div>
+                <div class="d-flex align-items-center gap-2">
+                  <select class="form-select form-select-sm w-auto" id="pageSizeSelect">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="50">50</option>
+                  </select>
+                  <nav>
+                    <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="spinner" class="spinner mx-auto d-none"></div>
+    </div>
+  </main>
+  <script src="/js/adminJS/students.js"></script>
+  <script src="../assets/js/core/popper.min.js"></script>
+  <script src="../assets/js/core/bootstrap.min.js"></script>
+  <script src="../assets/js/plugins/perfect-scrollbar.min.js"></script>
+  <script src="../assets/js/plugins/smooth-scrollbar.min.js"></script>
+</body>
+</html>
+
+

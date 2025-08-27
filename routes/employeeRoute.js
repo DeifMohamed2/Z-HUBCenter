@@ -25,6 +25,12 @@ const authMiddleware = async (req, res, next) => {
       .then((result) => {
           req.employee = result;
         if (result.role === 'Employee') {
+          // Check if employee account is active
+          if (!result.isActive) {
+            res.clearCookie('token');
+            res.status(403).send({message: 'Your account has been deactivated. Please contact the administrator.'});
+            return;
+          }
           next();
         } else {
           res.clearCookie('token');

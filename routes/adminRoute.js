@@ -38,6 +38,7 @@ const authMiddleware = async (req, res, next) => {
 };
 
 router.get('/dashboard', authMiddleware, adminController.dashboard);
+router.get('/dashboard-data', authMiddleware, adminController.getDashboardData);
 
 router.get('/employee', authMiddleware, adminController.Employee_Get);
 
@@ -50,6 +51,22 @@ router.put('/update-salary/:id', authMiddleware, adminController.updateSalary);
 router.get('/get-employee/:id', authMiddleware, adminController.getEmployee);
 
 router.put('/get-employee/:id', authMiddleware, adminController.updateEmployee);
+
+router.put('/toggle-employee-status/:id', authMiddleware, adminController.toggleEmployeeStatus);
+
+router.get('/employee-log/:id', authMiddleware, adminController.getEmployeeLog);
+// Admin Students
+router.get('/students', authMiddleware, adminController.students_Get);
+router.get('/all-students', authMiddleware, adminController.adminGetAllStudents);
+router.delete('/delete-student/:id', authMiddleware, adminController.adminDeleteStudent);
+
+// Render employee log page
+router.get('/employee-log', authMiddleware, (req, res) => {
+  res.render('Admin/employeeLog', {
+    title: 'Employee Log',
+    path: '/admin/employee-log'
+  });
+});
 
 
 
@@ -85,5 +102,23 @@ router.get('/Admin-get-all-bills', authMiddleware, adminController.Admin_getAllB
 // LogOut
 
 router.get('/logout', authMiddleware, adminController.logOut);
+
+// Center Fees Collection routes
+router.get('/center-fees', authMiddleware, adminController.centerFees_Get);
+router.get('/center-fees-data', authMiddleware, adminController.getCenterFeesData);
+router.post('/collect-center-fees', authMiddleware, adminController.collectCenterFees);
+
+// Attendance Details routes
+router.get('/attendance-details', authMiddleware, adminController.attendanceDetails_Get);
+router.get('/attendance-details/:id', authMiddleware, adminController.getAttendanceDetails);
+router.get('/download-attendance-excel/:id', authMiddleware, adminController.downloadAttendanceExcel);
+
+// Teachers route for filter dropdown
+router.get('/teachers', authMiddleware, adminController.getTeachers);
+
+// Teacher Report routes
+router.get('/teacher-report', authMiddleware, adminController.teacherReport_Get);
+router.get('/teacher-report-data', authMiddleware, adminController.getTeacherReportData);
+router.get('/download-teacher-excel', authMiddleware, adminController.downloadTeacherExcel);
 
 module.exports = router;

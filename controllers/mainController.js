@@ -38,6 +38,13 @@ const singIn = async (req, res) => {
             res.status(404).send({message :'Employee not found'});
             return;
         }
+        
+        // Check if employee account is active
+        if (!employee.isActive) {
+            res.status(403).send({message :'Your account has been deactivated. Please contact the administrator.'});
+            return;
+        }
+        
         const token = jwt.sign({ employeeId: employee._id }, jwtSecret);
         res.cookie('token', token, { httpOnly: true });
         res.send(employee);

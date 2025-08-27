@@ -197,11 +197,7 @@ const addStudentToTable = (student) => {
       data-bs-toggle="modal" data-bs-target="#editStudentModal">Edit</button>
     </td>
 
-    <td class="align-middle text-center">
-      <button class="delete-student-btn mt-2" data-id="${
-        student._id
-      }">Delete</button>
-    </td>
+    
 
     <td class="align-middle text-center">
       <button class="send-code-btn mt-2" data-id="${
@@ -217,9 +213,7 @@ const addStudentToTable = (student) => {
     openEditModal(student._id);
   });
 
-  tr.querySelector('.delete-student-btn').addEventListener('click', () => {
-    deleteStudent(student._id);
-  });
+  // deletion from employee UI removed per policy
 
   // Attach event listener for the send code button
   tr.querySelector('.send-code-btn').addEventListener('click', () => {
@@ -470,27 +464,7 @@ document
   .getElementById('saveEditStudentBtn')
   .addEventListener('click', saveEditStudent);
 
-// Delete Student
-
-const deleteStudent = async (id) => {
-  if (!confirm('هل أنت متأكد أنك تريد حذف هذا الطالب؟')) return;
-
-  try {
-    const response = await fetch(`/employee/delete-student/${id}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete student');
-
-    // Remove the row from the table
-    document.querySelector(`button[data-id="${id}"]`).closest('tr').remove();
-    successToast.classList.add('show');
-    messageToast.innerHTML = 'تم حذف الطالب بنجاح';
-  } catch (error) {
-    console.error('Error deleting student:', error);
-    errorMessage.classList.add('show');
-    errorMessage.innerHTML = 'حدث خطأ أثناء حذف الطالب.';
-  }
-};
+// Delete Student removed from employee UI
 
 // Search Student
 
@@ -665,178 +639,185 @@ const sendCodeAgain = async (studentId) => {
 
 // Excel Upload Functionality
 
-// Update course selection when teacher is selected for Excel upload
-// document.getElementById('excelTeacherSelection').addEventListener('change', function() {
-//   const teacherId = this.value;
-//   const courseSelection = document.getElementById('excelCourseSelection');
+// Toggle Excel upload section
+document.getElementById('toggleExcelSection').addEventListener('click', function() {
+  const section = document.getElementById('excelUploadSection');
+  const button = this;
   
-//   // Clear current options
-//   courseSelection.innerHTML = '<option selected value="">اختر الدورة</option>';
-  
-//   if (teacherId) {
-//     // Find the selected teacher and populate courses
-//     const teacherCheckbox = document.getElementById(`teacher_${teacherId}`);
-//     if (teacherCheckbox) {
-//       const coursesContainer = document.getElementById(`courses_${teacherId}`);
-//       const courseCheckboxes = coursesContainer.querySelectorAll('input[type="checkbox"]');
-      
-//       courseCheckboxes.forEach(checkbox => {
-//         const courseName = checkbox.value;
-//         const option = document.createElement('option');
-//         option.value = courseName;
-//         option.textContent = courseName;
-//         courseSelection.appendChild(option);
-//       });
-//     }
-//   }
-// });
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    button.innerHTML = '<i class="material-symbols-rounded text-sm">visibility_off</i>&nbsp;&nbsp;إخفاء قسم رفع Excel';
+  } else {
+    section.style.display = 'none';
+    button.innerHTML = '<i class="material-symbols-rounded text-sm">upload</i>&nbsp;&nbsp;عرض قسم رفع Excel';
+  }
+});
 
-// // Handle Excel file upload
-// document.getElementById('excelUploadForm').addEventListener('submit', async function(e) {
-//   e.preventDefault();
+// Update course selection when teacher is selected for Excel upload
+document.getElementById('excelTeacherSelection').addEventListener('change', function() {
+  const teacherId = this.value;
+  const courseSelection = document.getElementById('excelCourseSelection');
   
-//   const uploadBtn = document.getElementById('uploadExcelBtn');
-//   const originalText = uploadBtn.innerHTML;
-//   uploadBtn.innerHTML = '<i class="spinner-border spinner-border-sm"></i> جاري الرفع...';
-//   uploadBtn.disabled = true;
+  // Clear current options
+  courseSelection.innerHTML = '<option selected value="">اختر الكورس</option>';
   
-//   // Hide previous results and show progress
-//   document.getElementById('excelUploadResults').style.display = 'none';
-//   document.getElementById('excelUploadProgress').style.display = 'block';
+  if (teacherId) {
+    // Find the selected teacher and populate courses
+    const teacherCheckbox = document.getElementById(`teacher_${teacherId}`);
+    if (teacherCheckbox) {
+      const coursesContainer = document.getElementById(`courses_${teacherId}`);
+      if (coursesContainer) {
+        const courseCheckboxes = coursesContainer.querySelectorAll('input[type="checkbox"]');
+        
+        courseCheckboxes.forEach(checkbox => {
+          const courseName = checkbox.value;
+          const option = document.createElement('option');
+          option.value = courseName;
+          option.textContent = courseName;
+          courseSelection.appendChild(option);
+        });
+      }
+    }
+  }
+});
+
+// Handle Excel file upload
+document.getElementById('excelUploadForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
   
-//   // Start progress animation
-//   const progressBar = document.getElementById('uploadProgressBar');
-//   const progressText = document.getElementById('uploadProgressText');
-//   let progress = 0;
+  const uploadBtn = document.getElementById('uploadExcelBtn');
+  const originalText = uploadBtn.innerHTML;
+  uploadBtn.innerHTML = '<i class="spinner-border spinner-border-sm"></i> جاري الرفع...';
+  uploadBtn.disabled = true;
   
-//   const progressInterval = setInterval(() => {
-//     progress += Math.random() * 15;
-//     if (progress > 90) progress = 90; // Don't go to 100% until complete
-//     progressBar.style.width = progress + '%';
-//     progressText.textContent = `جاري إنشاء حسابات الطلاب... ${Math.round(progress)}%`;
-//   }, 500);
+  // Hide previous results and show progress
+  document.getElementById('excelUploadResults').style.display = 'none';
+  document.getElementById('excelUploadProgress').style.display = 'block';
   
-//   const formData = new FormData(this);
+  // Start progress animation
+  const progressBar = document.getElementById('uploadProgressBar');
+  const progressText = document.getElementById('uploadProgressText');
+  let progress = 0;
   
-//   // Add the amount field to form data
-//   const allStudentsAmount = document.getElementById('allStudentsAmount').value;
-//   if (allStudentsAmount) {
-//     formData.append('allStudentsAmount', allStudentsAmount);
-//   }
+  const progressInterval = setInterval(() => {
+    progress += Math.random() * 15;
+    if (progress > 90) progress = 90; // Don't go to 100% until complete
+    progressBar.style.width = progress + '%';
+    progressText.textContent = `جاري إنشاء حسابات الطلاب... ${Math.round(progress)}%`;
+  }, 500);
   
-//   // Add column names to form data
-//   const columnNames = {
-//     studentName: document.getElementById('colStudentName').value,
-//     studentCode: document.getElementById('colStudentCode').value,
-//     studentPhoneNumber: document.getElementById('colStudentPhone').value,
-//     studentParentPhone: document.getElementById('colParentPhone').value,
-//     schoolName: document.getElementById('colSchoolName').value
-//   };
+  const formData = new FormData(this);
   
-//   formData.append('columnNames', JSON.stringify(columnNames));
+  // Add the amount field to form data
+  const allStudentsAmount = document.getElementById('allStudentsAmount').value;
+  if (allStudentsAmount) {
+    formData.append('allStudentsAmount', allStudentsAmount);
+  }
   
-//   // Debug: Log form data
-//   console.log('Form data being sent:');
-//   for (let [key, value] of formData.entries()) {
-//     console.log(key, value);
-//   }
+
   
-//   try {
-//     const response = await fetch('/employee/upload-excel-students', {
-//       method: 'POST',
-//       body: formData
-//     });
+  // Debug: Log form data
+  console.log('Form data being sent:');
+  for (let [key, value] of formData.entries()) {
+    console.log(key, value);
+  }
+  
+  try {
+    const response = await fetch('/employee/upload-excel-students', {
+      method: 'POST',
+      body: formData
+    });
     
-//     const result = await response.json();
+    const result = await response.json();
     
-//     // Clear progress interval and complete progress
-//     clearInterval(progressInterval);
-//     progressBar.style.width = '100%';
-//     progressText.textContent = 'تم إنشاء جميع الحسابات بنجاح!';
+    // Clear progress interval and complete progress
+    clearInterval(progressInterval);
+    progressBar.style.width = '100%';
+    progressText.textContent = 'تم إنشاء جميع الحسابات بنجاح!';
     
-//     // Hide progress and show results
-//     document.getElementById('excelUploadProgress').style.display = 'none';
-//     const resultsDiv = document.getElementById('excelUploadResults');
-//     const successAlert = document.getElementById('excelSuccessAlert');
-//     const errorAlert = document.getElementById('excelErrorAlert');
-//     const successDetails = document.getElementById('excelSuccessDetails');
-//     const errorDetails = document.getElementById('excelErrorDetails');
+    // Hide progress and show results
+    document.getElementById('excelUploadProgress').style.display = 'none';
+    const resultsDiv = document.getElementById('excelUploadResults');
+    const successAlert = document.getElementById('excelSuccessAlert');
+    const errorAlert = document.getElementById('excelErrorAlert');
+    const successDetails = document.getElementById('excelSuccessDetails');
+    const errorDetails = document.getElementById('excelErrorDetails');
     
-//     resultsDiv.style.display = 'block';
+    resultsDiv.style.display = 'block';
     
-//     if (response.ok) {
-//       // Show success results
-//       successAlert.style.display = 'block';
-//       errorAlert.style.display = 'none';
+    if (response.ok) {
+      // Show success results
+      successAlert.style.display = 'block';
+      errorAlert.style.display = 'none';
       
-//       let successHtml = `<p>${result.message}</p>`;
-//       if (result.results.success.length > 0) {
-//         successHtml += '<h6>الطلاب المضافون بنجاح:</h6><ul>';
-//         result.results.success.forEach(student => {
-//           successHtml += `<li>${student.name} - الكود: ${student.code}</li>`;
-//         });
-//         successHtml += '</ul>';
-//       }
+      let successHtml = `<p>${result.message}</p>`;
+      if (result.results.success.length > 0) {
+        successHtml += '<h6>الطلاب المضافون بنجاح:</h6><ul>';
+        result.results.success.forEach(student => {
+          successHtml += `<li>${student.name} - الكود: ${student.code}</li>`;
+        });
+        successHtml += '</ul>';
+      }
       
-//       if (result.results.failed.length > 0) {
-//         successHtml += '<h6>الطلاب الذين فشل إضافتهم:</h6><ul>';
-//         result.results.failed.forEach(student => {
-//           successHtml += `<li>${student.name} - الخطأ: ${student.error}</li>`;
-//         });
-//         successHtml += '</ul>';
-//       }
+      if (result.results.failed.length > 0) {
+        successHtml += '<h6>الطلاب الذين فشل إضافتهم:</h6><ul>';
+        result.results.failed.forEach(student => {
+          successHtml += `<li>${student.name} - الخطأ: ${student.error}</li>`;
+        });
+        successHtml += '</ul>';
+      }
       
-//       successDetails.innerHTML = successHtml;
+      successDetails.innerHTML = successHtml;
       
-//       // Reset form
-//       this.reset();
-//       document.getElementById('excelCourseSelection').innerHTML = '<option selected value="">اختر الدورة</option>';
+      // Reset form
+      this.reset();
+      document.getElementById('excelCourseSelection').innerHTML = '<option selected value="">اختر الكورس</option>';
       
-//       // Refresh student table
-//       getStudents();
+      // Refresh student table
+      getStudents();
       
-//     } else {
-//       // Show error results
-//       successAlert.style.display = 'none';
-//       errorAlert.style.display = 'block';
+    } else {
+      // Show error results
+      successAlert.style.display = 'none';
+      errorAlert.style.display = 'block';
       
-//       let errorHtml = `<p>${result.message}</p>`;
-//       if (result.errors && result.errors.length > 0) {
-//         errorHtml += '<ul>';
-//         result.errors.forEach(error => {
-//           errorHtml += `<li>${error}</li>`;
-//         });
-//         errorHtml += '</ul>';
-//       }
+      let errorHtml = `<p>${result.message}</p>`;
+      if (result.errors && result.errors.length > 0) {
+        errorHtml += '<ul>';
+        result.errors.forEach(error => {
+          errorHtml += `<li>${error}</li>`;
+        });
+        errorHtml += '</ul>';
+      }
       
-//       errorDetails.innerHTML = errorHtml;
-//     }
+      errorDetails.innerHTML = errorHtml;
+    }
     
-//   } catch (error) {
-//     console.error('Error uploading Excel file:', error);
+  } catch (error) {
+    console.error('Error uploading Excel file:', error);
     
-//     // Clear progress interval and show error
-//     clearInterval(progressInterval);
-//     progressBar.style.width = '100%';
-//     progressBar.classList.remove('progress-bar-animated');
-//     progressBar.classList.add('bg-danger');
-//     progressText.textContent = 'حدث خطأ أثناء إنشاء الحسابات';
+    // Clear progress interval and show error
+    clearInterval(progressInterval);
+    progressBar.style.width = '100%';
+    progressBar.classList.remove('progress-bar-animated');
+    progressBar.classList.add('bg-danger');
+    progressText.textContent = 'حدث خطأ أثناء إنشاء الحسابات';
     
-//     // Hide progress and show error
-//     document.getElementById('excelUploadProgress').style.display = 'none';
-//     const resultsDiv = document.getElementById('excelUploadResults');
-//     const successAlert = document.getElementById('excelSuccessAlert');
-//     const errorAlert = document.getElementById('excelErrorAlert');
-//     const errorDetails = document.getElementById('excelErrorDetails');
+    // Hide progress and show error
+    document.getElementById('excelUploadProgress').style.display = 'none';
+    const resultsDiv = document.getElementById('excelUploadResults');
+    const successAlert = document.getElementById('excelSuccessAlert');
+    const errorAlert = document.getElementById('excelErrorAlert');
+    const errorDetails = document.getElementById('excelErrorDetails');
     
-//     resultsDiv.style.display = 'block';
-//     successAlert.style.display = 'none';
-//     errorAlert.style.display = 'block';
-//     errorDetails.innerHTML = '<p>حدث خطأ أثناء رفع الملف. يرجى المحاولة مرة أخرى.</p>';
-//   } finally {
-//     uploadBtn.innerHTML = originalText;
-//     uploadBtn.disabled = false;
-//   }
-// });
+    resultsDiv.style.display = 'block';
+    successAlert.style.display = 'none';
+    errorAlert.style.display = 'block';
+    errorDetails.innerHTML = '<p>حدث خطأ أثناء رفع الملف. يرجى المحاولة مرة أخرى.</p>';
+  } finally {
+    uploadBtn.innerHTML = originalText;
+    uploadBtn.disabled = false;
+  }
+});
 
 // Close modal

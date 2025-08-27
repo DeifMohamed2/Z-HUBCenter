@@ -42,6 +42,8 @@ const attendanceSchema = new Schema(
       feesAmount: { type: Number, required: false },
     },
     date: { type: String, required: true },
+    centerFeesCollected: { type: Boolean, default: false },
+    collectedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

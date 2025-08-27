@@ -58,6 +58,11 @@ const employeeSchema = new Schema(
       default: 'device1',
       required: true,
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+      required: false,
+    },
   },
   { timestamps: true }
 );
