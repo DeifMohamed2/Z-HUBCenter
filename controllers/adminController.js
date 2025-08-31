@@ -1313,7 +1313,7 @@ const getKPIs = async (req, res) => {
 // ================================= Billing ================================ //
 
 const admin_billing_Get = async (req, res) => {
-     res.render('admin/adminBilling', {
+     res.render('Admin/adminbilling', {
        title: 'Billing',
        path: '/admin/Admin-billing',
      });
