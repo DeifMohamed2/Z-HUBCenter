@@ -102,6 +102,8 @@ router.put('/update-teacher/:id', authMiddleware, employeeController.updateTeach
 
 router.get('/attendance', authMiddleware, employeeController.getAttendance);
 
+router.post('/get-student-info', authMiddleware, employeeController.getStudentInfo);
+
 router.post('/attend-student', authMiddleware, employeeController.attendStudent);
 
 router.get('/getDeviceData', authMiddleware, employeeController.getDeviceData);
@@ -123,6 +125,8 @@ router.post('/add-teacher-invoice', authMiddleware, employeeController.addTeache
 router.delete('/delete-invoice/:invoiceId', authMiddleware, employeeController.deleteInvoice);
 
 router.put('/update-invoice/:invoiceId', authMiddleware, employeeController.updateInvoice);
+
+router.post('/send-to-absences', authMiddleware, employeeController.sendToAbsences);
 
 // handel Attendance
 

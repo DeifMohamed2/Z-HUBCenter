@@ -65,6 +65,246 @@ hr {
  
 }
 
+/* Modal Styles */
+.modal-content {
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  border-radius: 15px 15px 0 0;
+  background-color: #2c3e50 !important;
+  position: sticky;
+  top: 0;
+  z-index: 1050;
+}
+
+.modal-title {
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  max-height: calc(90vh - 120px);
+  overflow-y: auto;
+}
+
+.modal-dialog {
+  max-width: 70% !important;
+  width: 70% !important;
+  margin: 2rem auto;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.modal-footer {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  border-top: 1px solid #dee2e6;
+  z-index: 1050;
+}
+
+.card {
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  border: 1px solid #e9ecef;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.card-header {
+  border-radius: 10px 10px 0 0 !important;
+  background-color: #f8f9fa !important;
+  border-bottom: 2px solid #dee2e6;
+  color: #495057;
+}
+
+.form-control {
+  border: 2px solid #ced4da;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+  outline: none;
+}
+
+.form-control:read-only {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+  color: #6c757d;
+}
+
+.alert-info {
+  background-color: #d1ecf1;
+  border: 1px solid #bee5eb;
+  border-radius: 10px;
+  color: #0c5460;
+}
+
+.btn-success {
+  background-color: #28a745;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  padding: 0.75rem 1.5rem;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  padding: 0.75rem 1.5rem;
+}
+
+.btn-secondary:hover {
+  background-color: #545b62;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+}
+
+.form-check-input:checked {
+  background-color: #3498db;
+  border-color: #3498db;
+}
+
+.text-primary { color: #3498db !important; }
+.text-success { color: #28a745 !important; }
+.text-warning { color: #ffc107 !important; }
+.text-info { color: #17a2b8 !important; }
+
+/* Animation for modal */
+.modal.fade .modal-dialog {
+  transform: scale(0.8);
+  transition: transform 0.3s ease-out;
+}
+
+.modal.show .modal-dialog {
+  transform: scale(1);
+}
+
+/* Input group styling */
+.input-group .form-control {
+  border-radius: 8px;
+}
+
+/* Responsive adjustments for modal */
+@media (max-width: 1200px) {
+  .modal-dialog {
+    max-width: 90% !important;
+    width: 90% !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-dialog {
+    max-width: 95% !important;
+    width: 95% !important;
+    margin: 1rem auto;
+  }
+  
+  .modal-body {
+    padding: 1rem;
+  }
+  
+  .modal-content {
+    max-height: 95vh;
+  }
+}
+
+/* Ensure modal appears above sidebar */
+.modal {
+  z-index: 1060 !important;
+}
+
+.modal-backdrop {
+  z-index: 1055 !important;
+}
+
+/* Force modal to be centered and not overlap sidebar */
+.modal-dialog {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  transform: none !important;
+}
+
+/* Summary section styling */
+.alert-info .row > div {
+  padding: 0.5rem;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.7);
+  margin: 0.25rem;
+}
+
+/* Form label styling */
+.form-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+/* Small text styling */
+.text-muted {
+  color: #6c757d !important;
+  font-size: 0.875rem;
+}
+
+/* Progress bar styling for message sending */
+.progress {
+  height: 25px;
+  border-radius: 15px;
+  background-color: #f8f9fa;
+  border: 2px solid #dee2e6;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.progress-bar {
+  background: linear-gradient(45deg, #007bff, #0056b3);
+  color: white;
+  font-weight: bold;
+  text-align: center;
+  line-height: 21px;
+  transition: width 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.progress-bar-striped {
+  background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent);
+  background-size: 1rem 1rem;
+}
+
+.progress-bar-animated {
+  animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+  0% { background-position: 1rem 0; }
+  100% { background-position: 0 0; }
+}
+
 
 .table-responsive  {
   max-height: 500px;
@@ -286,6 +526,9 @@ hr {
                         </button>
                            <button type="button" class="btn bg-gradient-dark mb-0" id="AssistantExcelBtn">
                              <i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;Assistant Excel
+                           </button>
+                           <button type="button" class="btn bg-gradient-danger mb-0" id="sendToAbsencesBtn">
+                             <i class="material-symbols-rounded text-sm">message</i>&nbsp;&nbsp;إرسال للغياب
                            </button>
                       </div>
                       <div class="col-lg-1 col-sm-6" >
@@ -560,7 +803,7 @@ const devices = {
 
 
 
-const deviceData = <%- JSON.stringify(device) %>
+const deviceData = '<%- device %>';
 console.log(deviceData);
 document.getElementById("deviceSelect").value = deviceData;
 let selectedDevice = devices[deviceData];
@@ -615,6 +858,163 @@ resolve(selectedDevice.certificate);
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <!-- Control Center for Material Dashboard: parallax effects, scripts for the example pages etc -->
   <script src="../assets/js/material-dashboard.min.js?v=3.2.0"></script>
+
+  <!-- Student Attendance Modal -->
+  <div class="modal fade" id="studentAttendanceModal" tabindex="-1" aria-labelledby="studentAttendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-gradient-dark text-white">
+          <h5 class="modal-title" id="studentAttendanceModalLabel">
+            <i class="material-symbols-rounded">person_add</i>
+            تأكيد حضور الطالب
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <!-- Student Information -->
+            <div class="col-md-6">
+              <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                  <h6 class="mb-0">
+                    <i class="material-symbols-rounded text-primary">person</i>
+                    معلومات الطالب
+                  </h6>
+                </div>
+                <div class="card-body">
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">اسم الطالب:</div>
+                    <div class="col-8" id="modalStudentName">-</div>
+                  </div>
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">كود الطالب:</div>
+                    <div class="col-8" id="modalStudentCode">-</div>
+                  </div>
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">رقم الهاتف:</div>
+                    <div class="col-8" id="modalStudentPhone">-</div>
+                  </div>
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">رقم ولي الأمر:</div>
+                    <div class="col-8" id="modalParentPhone">-</div>
+                  </div>
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">المدرسة:</div>
+                    <div class="col-8" id="modalSchoolName">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Session Information -->
+            <div class="col-md-6">
+              <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                  <h6 class="mb-0">
+                    <i class="material-symbols-rounded text-success">school</i>
+                    معلومات الجلسة
+                  </h6>
+                </div>
+                <div class="card-body">
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">المعلم:</div>
+                    <div class="col-8" id="modalTeacherName">-</div>
+                  </div>
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">المادة:</div>
+                    <div class="col-8" id="modalCourseName">-</div>
+                  </div>
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">نوع الدفع:</div>
+                    <div class="col-8" id="modalPaymentType">-</div>
+                  </div>
+                  <div class="row mb-2">
+                    <div class="col-4 fw-bold">عدد مرات الحضور:</div>
+                    <div class="col-8" id="modalAttendanceCount">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Financial Information -->
+          <div class="row mt-3">
+            <div class="col-12">
+              <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                  <h6 class="mb-0">
+                    <i class="material-symbols-rounded text-warning">payments</i>
+                    المعلومات المالية
+                  </h6>
+                </div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label for="modalAmountRemaining" class="form-label fw-bold">المبلغ المتبقي:</label>
+                      <input type="number" class="form-control" id="modalAmountRemaining" step="0.01" min="0">
+                      <small class="text-muted">يمكن تعديله</small>
+                    </div>
+                    <div class="col-md-3">
+                      <label for="modalAmountToPay" class="form-label fw-bold">المبلغ المطلوب:</label>
+                      <input type="number" class="form-control" id="modalAmountToPay" step="0.01" min="0">
+                      <small class="text-muted">يمكن تعديله</small>
+                    </div>
+                    <div class="col-md-3">
+                      <label for="modalCenterFees" class="form-label fw-bold">رسوم السنتر:</label>
+                      <input type="number" class="form-control" id="modalCenterFees" step="0.01" min="0" readonly>
+                      <small class="text-muted">تلقائي</small>
+                    </div>
+                    <div class="col-md-3">
+                      <label for="modalNetProfit" class="form-label fw-bold">صافي الربح:</label>
+                      <input type="number" class="form-control" id="modalNetProfit" step="0.01" readonly>
+                      <small class="text-muted">محسوب تلقائياً</small>
+                    </div>
+                  </div>
+                  
+                  <!-- Summary -->
+                  <div class="row mt-3">
+                    <div class="col-12">
+                      <div class="alert alert-info">
+                        <div class="row">
+                          <div class="col-md-3">
+                            <strong>المبلغ الإجمالي:</strong>
+                            <span id="modalTotalAmount" class="text-primary">0 EGP</span>
+                          </div>
+                          <div class="col-md-3">
+                            <strong>الرسوم:</strong>
+                            <span id="modalTotalFees" class="text-warning">0 EGP</span>
+                          </div>
+                          <div class="col-md-3">
+                            <strong>الربح الصافي:</strong>
+                            <span id="modalTotalProfit" class="text-success">0 EGP</span>
+                          </div>
+                          <div class="col-md-3">
+                            <strong>التاريخ:</strong>
+                            <span id="modalDate" class="text-info">-</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="material-symbols-rounded">close</i>
+            إلغاء
+          </button>
+          <button type="button" class="btn btn-success" id="confirmAttendanceBtn">
+            <i class="material-symbols-rounded">check</i>
+            تأكيد الحضور
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 
 </html>

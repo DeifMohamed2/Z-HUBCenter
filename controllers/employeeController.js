@@ -1233,10 +1233,115 @@ function getDateTime() {
     return today;
 }
 
+const getStudentInfo = async (req, res) => {
+  const { searchStudent, teacherId, courseName, mockCheck, fixedAmountCheck, fixedAmount } = req.body;
+  
+  if (!teacherId || !courseName) {
+    return res.status(400).json({ message: 'يجب اختيار الكورس ' });
+  }
+
+  try {
+    // Find the student
+    let studentQuery;
+    const SearchStudent = searchStudent.trim();
+    
+    // Check if search contains only numbers
+    const isOnlyNumbers = /^\d+$/.test(SearchStudent);
+
+    if (isOnlyNumbers) {
+      // If it's only numbers, search by barCode, studentCode, and phone number
+      studentQuery = {
+        $or: [
+          { barCode: SearchStudent }, 
+          { studentCode: SearchStudent },
+        ]
+      };
+    } else {
+      // If it contains text, validate if it's a proper student code format
+      studentQuery = {
+        $or: [
+          { barCode: SearchStudent }, 
+          { studentCode: SearchStudent }
+        ]
+      };
+    }
+    
+    const student = await Student.findOne(studentQuery).populate('selectedTeachers.teacherId', 'teacherName subjectName teacherFees');
+
+    if (!student) {
+      return res.status(404).json({ message: 'هذا الطالب غير موجود' });
+    }
+
+    // Check if the student is enrolled with the specified teacher and course
+    const selectedTeacherEntry = student.selectedTeachers.find(
+      (t) => t.teacherId._id.toString() === teacherId
+    );
+
+    if (!selectedTeacherEntry) {
+      return res.status(404).json({ message: 'الطالب غير مسجل مع هذا المدرس' });
+    }
+
+    const course = selectedTeacherEntry.courses.find((c) => c.courseName === courseName);
+
+    if (!course) {
+      return res.status(404).json({ message: 'الطالب غير مسجل في هذه المادة مع المدرس المحدد' });
+    }
+
+    // Fetch the teacher's details
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return res.status(404).json({ message: 'المدرس غير موجود' });
+    }
+
+    // Calculate the number of times the student has attended the same course
+    const attendanceCount = await Attendance.countDocuments({
+      'studentsPresent.student': student._id,
+      teacher: teacherId,
+      course: courseName,
+    });
+
+    // Check if the student is already marked present today
+    const todayDate = getDateTime();
+    const existingAttendance = await Attendance.findOne({
+      date: todayDate,
+      teacher: teacherId,
+      course: courseName,
+      'studentsPresent.student': student._id,
+    });
+
+    if (existingAttendance) {
+      return res.status(400).json({ message: 'تم تسجيل حضور الطالب بالفعل لهذه المادة' });
+    }
+
+    res.status(200).json({
+      student,
+      course,
+      teacher,
+      attendanceCount
+    });
+
+  } catch (error) {
+    console.error('Error getting student info:', error);
+    res.status(500).json({ message: 'يبدو ان هناك مشكله ما حاول مره اخري' });
+  }
+};
+
 const attendStudent = async (req, res) => {
   console.time('attendStudentExecutionTime');
 
-  const { searchStudent, teacherId, courseName, mockCheck, fixedAmountCheck, fixedAmount } = req.body;
+  const { 
+    searchStudent, 
+    teacherId, 
+    courseName, 
+    mockCheck, 
+    fixedAmountCheck, 
+    fixedAmount,
+    amountRemaining,
+    amountToPay,
+    centerFees,
+    printReceipt,
+    sendWhatsApp
+  } = req.body;
   const employeeId = req.employeeId;
   const mockAmount = 150;
   const mockFees = 50;
@@ -1249,6 +1354,11 @@ const attendStudent = async (req, res) => {
     mockCheck, 
     fixedAmountCheck, 
     fixedAmount,
+    amountRemaining,
+    amountToPay,
+    centerFees,
+    printReceipt,
+    sendWhatsApp,
     mockCheckType: typeof mockCheck,
     fixedAmountCheckType: typeof fixedAmountCheck,
     fixedAmountType: typeof fixedAmount
@@ -1349,24 +1459,37 @@ const attendStudent = async (req, res) => {
 
     console.log('Attendance Count:', attendanceCount);
 
-    // Calculate payment details
+    // Use modal values if provided, otherwise calculate payment details
     const isPerSession = student.paymentType === 'perSession';
     let amountPaid;
+    let feesApplied;
     
-    // Handle fixed amount with proper type checking
-    if ((fixedAmountCheck === true || fixedAmountCheck === "true") && fixedAmount) {
-      console.log('Using fixed amount:', fixedAmount);
-      amountPaid = parseFloat(fixedAmount);
-      if (isNaN(amountPaid)) {
-        console.error('Invalid fixed amount value:', fixedAmount);
-        amountPaid = isPerSession ? course.amountPay : 0;
-      }
+    if (amountToPay !== undefined && centerFees !== undefined) {
+      // Use values from modal
+      amountPaid = parseFloat(amountToPay);
+      feesApplied = parseFloat(centerFees);
     } else {
-      // Handle mock check or regular amount
-      amountPaid = (mockCheck === true || mockCheck === "true") ? mockAmount : (isPerSession ? course.amountPay : 0);
+      // Handle fixed amount with proper type checking
+      if ((fixedAmountCheck === true || fixedAmountCheck === "true") && fixedAmount) {
+        console.log('Using fixed amount:', fixedAmount);
+        amountPaid = parseFloat(fixedAmount);
+        if (isNaN(amountPaid)) {
+          console.error('Invalid fixed amount value:', fixedAmount);
+          amountPaid = isPerSession ? course.amountPay : 0;
+        }
+      } else {
+        // Handle mock check or regular amount
+        amountPaid = (mockCheck === true || mockCheck === "true") ? mockAmount : (isPerSession ? course.amountPay : 0);
+      }
+      feesApplied = mockCheck === "true" ? mockFees : (isPerSession ? teacher.teacherFees : 0);
     }
-    const feesApplied = mockCheck === "true" ? mockFees : (isPerSession ? teacher.teacherFees : 0);
+    
     const teacherProfit = isPerSession ? amountPaid - feesApplied : 0;
+
+    // Update student's course amount remaining if provided
+    if (amountRemaining !== undefined) {
+      course.amountRemaining = parseFloat(amountRemaining);
+    }
 
     // Add the student to the attendance record
     attendance.studentsPresent.push({
@@ -1389,8 +1512,12 @@ const attendStudent = async (req, res) => {
     // Save the attendance record
     await attendance.save();
 
-    // Send message to parent in Arabic
-    const parentMessage = `
+    // Save student with updated amount remaining
+    await student.save();
+
+    // Send message to parent in Arabic if requested
+    if (sendWhatsApp !== false) { // Default to true if not specified
+      const parentMessage = `
 عزيزي ولي أمر الطالب ${student.studentName},
 -----------------------------
 نود إعلامكم بأن الطالب قد تم تسجيل حضوره اليوم .
@@ -1400,15 +1527,16 @@ const attendStudent = async (req, res) => {
 شكرًا لتعاونكم.
 `;
 
-    try {
-      await waziper.sendTextMessage(instanceId, `2${student.studentParentPhone}@c.us`, parentMessage).then((response) => {
-        console.log('Message sent:', response.data);
-      }).catch((error) => {
+      try {
+        await waziper.sendTextMessage(instanceId, `2${student.studentParentPhone}@c.us`, parentMessage).then((response) => {
+          console.log('Message sent:', response.data);
+        }).catch((error) => {
+          console.error('Error sending message:', error);
+        });
+      } catch (error) {
         console.error('Error sending message:', error);
-      });
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Continue with the process even if message sending fails
+        // Continue with the process even if message sending fails
+      }
     }
 
     // Populate updated attendance data
@@ -2162,6 +2290,108 @@ const updateInvoice = async (req, res) => {
 
 };
 
+
+const sendToAbsences = async (req, res) => {
+  const { teacherId, courseName } = req.body;
+  
+  if (!teacherId || !courseName) {
+    return res.status(400).json({ message: 'Teacher ID and course name are required' });
+  }
+
+  try {
+    // Get today's date
+    const todayDate = getDateTime();
+    
+    // Find today's attendance record for this teacher and course
+    const attendance = await Attendance.findOne({
+      date: todayDate,
+      teacher: teacherId,
+      course: courseName,
+    });
+
+    // Get all students enrolled in this course with this teacher
+    const enrolledStudents = await Student.find({
+      'selectedTeachers.teacherId': teacherId,
+      'selectedTeachers.courses.courseName': courseName
+    }).populate('selectedTeachers.teacherId', 'teacherName');
+
+    if (enrolledStudents.length === 0) {
+      return res.status(404).json({ message: 'لا يوجد طلاب مسجلين في هذا الكورس' });
+    }
+
+    // Get list of students who attended today
+    const attendedStudentIds = attendance ? attendance.studentsPresent.map(sp => sp.student.toString()) : [];
+    
+    // Filter out students who attended today (they are not absent)
+    const absentStudents = enrolledStudents.filter(student => {
+      return !attendedStudentIds.includes(student._id.toString());
+    });
+
+    if (absentStudents.length === 0) {
+      return res.status(200).json({ 
+        message: 'جميع الطلاب المسجلين في الكورس قد حضروا اليوم',
+        sentCount: 0,
+        totalStudents: enrolledStudents.length,
+        attendedStudents: attendedStudentIds.length
+      });
+    }
+
+    // Get teacher information
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return res.status(404).json({ message: 'المدرس غير موجود' });
+    }
+
+    // Send messages to absent students
+    let sentCount = 0;
+    const failedMessages = [];
+
+    for (const student of absentStudents) {
+      try {
+        const message = `
+عزيزي ولي أمر الطالب ${student.studentName}،
+-----------------------------
+نود إعلامكم بأن الطالب لم يحضر اليوم في الكورس التالي:
+الكورس: ${courseName}
+المعلم: ${teacher.teacherName}
+التاريخ: ${new Date().toLocaleDateString('ar-EG')}
+
+شكرًا لتعاونكم.
+        `;
+
+        await waziper.sendTextMessage(instanceId, `2${student.studentParentPhone}@c.us`, message);
+        sentCount++;
+        
+        // Add a small delay between messages to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error(`Error sending message to ${student.studentName}:`, error);
+        failedMessages.push(student.studentName);
+      }
+    }
+
+    // Prepare response
+    const response = {
+      message: `تم إرسال الرسائل بنجاح`,
+      sentCount,
+      totalStudents: enrolledStudents.length,
+      attendedStudents: attendedStudentIds.length,
+      absentStudents: absentStudents.length
+    };
+
+    if (failedMessages.length > 0) {
+      response.failedMessages = failedMessages;
+      response.message += ` (فشل في إرسال ${failedMessages.length} رسالة)`;
+    }
+
+    res.status(200).json(response);
+
+  } catch (error) {
+    console.error('Error sending to absences:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء إرسال الرسائل للغياب' });
+  }
+};
 
 // ======================================== End Attendance ======================================== //
 
@@ -3418,6 +3648,7 @@ module.exports = {
   addTeacherInvoice,
   deleteInvoice,
   updateInvoice,
+  sendToAbsences,
 
   // handel Attendance
   handelAttendance,
@@ -3431,6 +3662,7 @@ module.exports = {
   getStudentLogsData,
 
   logOut,
+  getStudentInfo,
 };
 
 

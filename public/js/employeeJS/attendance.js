@@ -48,49 +48,276 @@ async function attendStudent(event) {
         fixedAmountType: typeof data.fixedAmount
       });
     }
+
     try {
-        const response = await fetch('/employee/attend-student', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        // First, get student information to show in modal
+        const response = await fetch('/employee/get-student-info', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
         });
-        const responseData = await response.json();
-        console.log(responseData);
+        
+        const studentInfo = await response.json();
+        
         if (response.ok) {
-        addStudentsToTable(responseData.students , data.teacherId , data.courseName);    
-        spinner.classList.add('d-none');
-        attendStudentForm.reset();
-      
-        message.textContent = responseData.message;
-        printReceipt(responseData.studentData);
-          searchStudent.focus();
-          if (responseData.studentData.amountRemaining > 0) {
-            Swal.fire({
-              icon: 'warning',
-              title: 'مبلغ متبقي  ',
-              html: `يوجد مبلغ متبقي علي الطالب <b>${responseData.studentData.studentName}</b> بقيمة <b>${responseData.studentData.amountRemaining}</b> جنيه`,
-            });
-          }
-           temp3Student++;
-          if(temp3Student == 5){
-            getStudents();
-            temp3Student = 0;
-          }
-    
+            // Show modal with student information
+            showAttendanceModal(studentInfo, data);
+            spinner.classList.add('d-none');
         } else {
-        spinner.classList.add('d-none');
-      attendStudentForm.reset();
-        message.textContent = responseData.message;
-         searchStudent.focus();
-         
+            spinner.classList.add('d-none');
+            attendStudentForm.reset();
+            message.textContent = studentInfo.message;
+            searchStudent.focus();
         }
     } catch (error) {
         attendStudentForm.reset();
         searchStudent.focus();
         spinner.classList.add('d-none');
-        console.error('Error attending student:', error);
+        console.error('Error getting student info:', error);
+        message.textContent = 'حدث خطأ أثناء جلب معلومات الطالب';
+    }
+}
+
+// Function to show attendance modal
+function showAttendanceModal(studentInfo, formData) {
+    const student = studentInfo.student;
+    const course = studentInfo.course;
+    const teacher = studentInfo.teacher;
+    
+    // Populate student information
+    document.getElementById('modalStudentName').textContent = student.studentName;
+    document.getElementById('modalStudentCode').textContent = student.studentCode;
+    document.getElementById('modalStudentPhone').textContent = student.studentPhoneNumber;
+    document.getElementById('modalParentPhone').textContent = student.studentParentPhone;
+    document.getElementById('modalSchoolName').textContent = student.schoolName;
+    
+    // Populate session information
+    document.getElementById('modalTeacherName').textContent = teacher.teacherName;
+    document.getElementById('modalCourseName').textContent = course.courseName;
+    document.getElementById('modalPaymentType').textContent = student.paymentType === 'perSession' ? 'دفع لكل جلسة' : 'دفع للكورس';
+    document.getElementById('modalAttendanceCount').textContent = studentInfo.attendanceCount + 1;
+    document.getElementById('modalDate').textContent = new Date().toLocaleDateString('ar-EG');
+    
+    // Set initial financial values based on system settings
+    const initialAmountRemaining = course.amountRemaining || 0;
+    const initialAmountToPay = formData.fixedAmountCheck ? formData.fixedAmount : 
+                              (student.paymentType === 'perSession' ? course.amountPay : 0);
+    const initialCenterFees = formData.mockCheck ? 50 : 
+                             (student.paymentType === 'perSession' ? teacher.teacherFees : 0);
+    
+    document.getElementById('modalAmountRemaining').value = initialAmountRemaining;
+    document.getElementById('modalAmountToPay').value = initialAmountToPay;
+    document.getElementById('modalCenterFees').value = initialCenterFees;
+    
+    // Set checkboxes based on system settings (always enabled by default)
+    // Note: Print receipt and WhatsApp are always enabled by default
+    
+    // Calculate and display initial totals
+    updateModalCalculations();
+    
+    // Store data for confirmation
+    window.modalData = {
+        studentInfo,
+        formData,
+        originalAmountRemaining: initialAmountRemaining,
+        originalAmountToPay: initialAmountToPay
+    };
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('studentAttendanceModal'));
+    modal.show();
+}
+
+// Function to update modal calculations
+function updateModalCalculations() {
+    const amountRemaining = parseFloat(document.getElementById('modalAmountRemaining').value) || 0;
+    const amountToPay = parseFloat(document.getElementById('modalAmountToPay').value) || 0;
+    const centerFees = parseFloat(document.getElementById('modalCenterFees').value) || 0;
+    
+    // Calculate net profit
+    const netProfit = amountToPay - centerFees;
+    document.getElementById('modalNetProfit').value = netProfit;
+    
+    // Update summary
+    document.getElementById('modalTotalAmount').textContent = amountToPay + ' EGP';
+    document.getElementById('modalTotalFees').textContent = centerFees + ' EGP';
+    document.getElementById('modalTotalProfit').textContent = netProfit + ' EGP';
+    
+    // Add visual feedback for negative values
+    const netProfitElement = document.getElementById('modalNetProfit');
+    const totalProfitElement = document.getElementById('modalTotalProfit');
+    
+    if (netProfit < 0) {
+        netProfitElement.style.color = '#dc3545';
+        totalProfitElement.style.color = '#dc3545';
+    } else {
+        netProfitElement.style.color = '#28a745';
+        totalProfitElement.style.color = '#28a745';
+    }
+}
+
+// Function to validate modal data
+function validateModalData() {
+    const amountRemaining = parseFloat(document.getElementById('modalAmountRemaining').value) || 0;
+    const amountToPay = parseFloat(document.getElementById('modalAmountToPay').value) || 0;
+    const centerFees = parseFloat(document.getElementById('modalCenterFees').value) || 0;
+    
+    if (amountToPay < 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'خطأ في المبلغ',
+            text: 'المبلغ المطلوب لا يمكن أن يكون سالباً'
+        });
+        return false;
+    }
+    
+    if (centerFees < 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'خطأ في الرسوم',
+            text: 'رسوم السنتر لا يمكن أن تكون سالبة'
+        });
+        return false;
+    }
+    
+    if (amountRemaining < 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'خطأ في المبلغ المتبقي',
+            text: 'المبلغ المتبقي لا يمكن أن يكون سالباً'
+        });
+        return false;
+    }
+    
+    return true;
+}
+
+// Add event listeners for modal input changes
+document.addEventListener('DOMContentLoaded', function() {
+    // Listen for changes in modal inputs
+    document.getElementById('modalAmountRemaining').addEventListener('input', updateModalCalculations);
+    document.getElementById('modalAmountToPay').addEventListener('input', updateModalCalculations);
+    document.getElementById('modalCenterFees').addEventListener('input', updateModalCalculations);
+    
+    // Handle amount remaining changes
+    document.getElementById('modalAmountRemaining').addEventListener('change', function() {
+        const newAmountRemaining = parseFloat(this.value) || 0;
+        const originalAmountRemaining = window.modalData?.originalAmountRemaining || 0;
+        const originalAmountToPay = window.modalData?.originalAmountToPay || 0;
+        
+        // If amount remaining is reduced, add the difference to amount to pay
+        if (newAmountRemaining < originalAmountRemaining) {
+            const difference = originalAmountRemaining - newAmountRemaining;
+            const newAmountToPay = originalAmountToPay + difference;
+            document.getElementById('modalAmountToPay').value = newAmountToPay;
+        }
+        
+        updateModalCalculations();
+    });
+    
+        // Handle amount to pay changes
+    document.getElementById('modalAmountToPay').addEventListener('change', function() {
+        const newAmountToPay = parseFloat(this.value) || 0;
+        const originalAmountToPay = window.modalData?.originalAmountToPay || 0;
+        const originalAmountRemaining = window.modalData?.originalAmountRemaining || 0;
+        
+        // If amount to pay is increased, reduce amount remaining
+        if (newAmountToPay > originalAmountToPay) {
+            const difference = newAmountToPay - originalAmountToPay;
+            const newAmountRemaining = Math.max(0, originalAmountRemaining - difference);
+            document.getElementById('modalAmountRemaining').value = newAmountRemaining;
+        }
+        
+        updateModalCalculations();
+    });
+    
+    // Handle confirm attendance button
+    document.getElementById('confirmAttendanceBtn').addEventListener('click', confirmAttendance);
+});
+
+// Function to confirm attendance
+async function confirmAttendance() {
+    if (!window.modalData) {
+        console.error('No modal data available');
+        return;
+    }
+    
+    // Validate modal data first
+    if (!validateModalData()) {
+        return;
+    }
+    
+    const { studentInfo, formData } = window.modalData;
+    const modalData = {
+        ...formData,
+        amountRemaining: parseFloat(document.getElementById('modalAmountRemaining').value) || 0,
+        amountToPay: parseFloat(document.getElementById('modalAmountToPay').value) || 0,
+        centerFees: parseFloat(document.getElementById('modalCenterFees').value) || 0,
+        printReceipt: true, // Always enabled
+        sendWhatsApp: true  // Always enabled
+    };
+    
+    try {
+        spinner.classList.remove('d-none');
+        
+        const response = await fetch('/employee/attend-student', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(modalData),
+        });
+        
+        const responseData = await response.json();
+        
+        if (response.ok) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('studentAttendanceModal'));
+            modal.hide();
+            
+            // Update table
+            addStudentsToTable(responseData.students, formData.teacherId, formData.courseName);
+            
+            // Reset form
+            attendStudentForm.reset();
+            searchStudent.focus();
+            
+            // Show success message
+            message.textContent = responseData.message;
+            
+            // Print receipt if requested
+            if (modalData.printReceipt) {
+                printReceipt(responseData.studentData);
+            }
+            
+            // Show warning if amount remaining
+            if (responseData.studentData.amountRemaining > 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'مبلغ متبقي',
+                    html: `يوجد مبلغ متبقي علي الطالب <b>${responseData.studentData.studentName}</b> بقيمة <b>${responseData.studentData.amountRemaining}</b> جنيه`,
+                });
+            }
+            
+            // Refresh data
+            temp3Student++;
+            if (temp3Student == 5) {
+                getStudents();
+                temp3Student = 0;
+            }
+            
+        } else {
+            message.textContent = responseData.message;
+        }
+        
+        spinner.classList.add('d-none');
+        
+    } catch (error) {
+        console.error('Error confirming attendance:', error);
+        message.textContent = 'حدث خطأ أثناء تأكيد الحضور';
+        spinner.classList.add('d-none');
     }
 }
 
@@ -822,3 +1049,127 @@ function tableToExcel() {
 
 // Add event listener to download Excel button
 document.getElementById('AssistantExcelBtn').addEventListener('click', tableToExcel);
+
+// Send to Absences functionality
+document.getElementById('sendToAbsencesBtn').addEventListener('click', async () => {
+    try {
+        const courseSelection = courseSelction.value;
+        if (!courseSelection) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'تحذير',
+                text: 'يرجى اختيار الكورس أولاً'
+            });
+            return;
+        }
+
+        const [teacherId, courseName] = courseSelection.split('_');
+        
+        // Show confirmation dialog
+        const result = await Swal.fire({
+            title: 'إرسال رسالة للغياب',
+            text: `هل تريد إرسال رسالة للطلاب الغائبين في كورس ${courseName}؟`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'نعم، إرسال',
+            cancelButtonText: 'إلغاء',
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d'
+        });
+
+        if (result.isConfirmed) {
+            spinner.classList.remove('d-none');
+            
+            // Show progress dialog
+            const progressDialog = Swal.fire({
+                title: 'جاري إرسال الرسائل...',
+                html: `
+                    <div class="progress mb-3" style="background-color: #f8f9fa; border: 2px solid #dee2e6; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: 0%; background: linear-gradient(45deg, #007bff, #0056b3); color: white; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" 
+                             id="messageProgress">0%</div>
+                    </div>
+                    <p id="messageCounter" style="color: #495057; font-weight: 500;">جاري الإرسال...</p>
+                `,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Simulate progress updates
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90;
+                
+                const progressBar = document.getElementById('messageProgress');
+                const counter = document.getElementById('messageCounter');
+                
+                if (progressBar && counter) {
+                    progressBar.style.width = progress + '%';
+                    progressBar.textContent = Math.round(progress) + '%';
+                    counter.textContent = `جاري الإرسال... ${Math.round(progress)}%`;
+                }
+            }, 500);
+            
+            const response = await fetch('/employee/send-to-absences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    teacherId,
+                    courseName
+                }),
+            });
+
+            // Clear the progress interval
+            clearInterval(progressInterval);
+            
+            // Complete the progress bar
+            const progressBar = document.getElementById('messageProgress');
+            if (progressBar) {
+                progressBar.style.width = '100%';
+                progressBar.textContent = '100%';
+            }
+
+            const responseData = await response.json();
+
+            if (response.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'تم الإرسال بنجاح',
+                    html: `
+                        <p>تم إرسال الرسالة إلى <strong>${responseData.sentCount}</strong> طالب غائب</p>
+                        <p>عدد الطلاب المسجلين في الكورس: <strong>${responseData.totalStudents}</strong></p>
+                        <p>عدد الطلاب الحاضرين: <strong>${responseData.attendedStudents}</strong></p>
+                        ${responseData.failedMessages ? `<p class="text-warning">فشل في إرسال ${responseData.failedMessages.length} رسالة</p>` : ''}
+                    `,
+                    confirmButtonText: 'حسناً'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ في الإرسال',
+                    text: responseData.message,
+                    confirmButtonText: 'حسناً'
+                });
+            }
+            
+            spinner.classList.add('d-none');
+        }
+    } catch (error) {
+        console.error('Error sending to absences:', error);
+        spinner.classList.add('d-none');
+        Swal.fire({
+            icon: 'error',
+            title: 'خطأ في الإرسال',
+            text: 'حدث خطأ أثناء إرسال الرسائل',
+            confirmButtonText: 'حسناً'
+        });
+    }
+});
