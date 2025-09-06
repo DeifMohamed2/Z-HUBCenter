@@ -204,6 +204,9 @@ const addStudentToTable = (student) => {
         student._id
       }">Send Code</button>
     </td>
+    <td class="align-middle text-center">
+      <button class="delete-student-btn mt-2" data-id="${student._id}">Delete</button>
+    </td>
     `;
 
   studentTableBody.appendChild(tr);
@@ -213,7 +216,10 @@ const addStudentToTable = (student) => {
     openEditModal(student._id);
   });
 
-  // deletion from employee UI removed per policy
+  // Attach event listener for the delete button
+  tr.querySelector('.delete-student-btn').addEventListener('click', () => {
+    deleteStudent(student._id);
+  });
 
   // Attach event listener for the send code button
   tr.querySelector('.send-code-btn').addEventListener('click', () => {
@@ -819,5 +825,47 @@ document.getElementById('excelUploadForm').addEventListener('submit', async func
     uploadBtn.disabled = false;
   }
 });
+
+// Delete student function
+async function deleteStudent(studentId) {
+  if (!confirm('هل أنت متأكد من حذف هذا الطالب؟')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/employee/delete-student/${studentId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const responseData = await response.json();
+    
+    if (response.ok) {
+      // Remove the student from the table
+      const studentRow = document.querySelector(`button[data-id="${studentId}"]`).closest('tr');
+      if (studentRow) {
+        studentRow.remove();
+      }
+      
+      // Show success message
+      messageToast.textContent = responseData.message || 'تم حذف الطالب بنجاح';
+      const toast = new bootstrap.Toast(successToast);
+      toast.show();
+      
+      // Refresh the student list
+      getAllStudents();
+    } else {
+      // Show error message
+      const errorToast = new bootstrap.Toast(errorMessage);
+      errorToast.show();
+    }
+  } catch (error) {
+    console.error('Error deleting student:', error);
+    const errorToast = new bootstrap.Toast(errorMessage);
+    errorToast.show();
+  }
+}
 
 // Close modal
