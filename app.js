@@ -7,6 +7,7 @@ const MongoStore = require('connect-mongo');
 const session = require('express-session');
 const cors = require('cors');
 const fileUpload = require('express-fileupload');
+const path = require('path');
 
 const mainRoute = require('./routes/mainRoute');
 const adminRoute = require('./routes/adminRoute');
@@ -40,7 +41,7 @@ app.set('view engine', 'ejs');
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(fileUpload({

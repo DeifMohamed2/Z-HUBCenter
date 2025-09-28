@@ -1212,7 +1212,7 @@ const sendDailyBillExcel = async () => {
     await waapi.postInstancesIdClientActionSendMedia(
       {
         mediaUrl: fileUrl,
-        chatId: '2' + '01156012078' + '@c.us',
+        chatId: '2' + '01200077827' + '@c.us',
         mediaBase64: base64Excel,
         mediaName: fileName,
         mediaCaption: `Bill Report for ${new Date().toLocaleDateString()}`,
