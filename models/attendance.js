@@ -44,6 +44,9 @@ const attendanceSchema = new Schema(
     date: { type: String, required: true },
     centerFeesCollected: { type: Boolean, default: false },
     collectedAt: { type: Date, default: null },
+    // Fields for tracking deleted courses
+    courseDeleted: { type: Boolean, default: false },
+    deletedCourseName: { type: String, required: false },
   },
   { timestamps: true }
 );

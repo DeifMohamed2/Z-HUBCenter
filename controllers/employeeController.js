@@ -8,6 +8,8 @@ const ExcelJS = require('exceljs');
 
 
 const waService = require('../utils/waService');
+const wasender = require('../utils/wasender');
+
 const { StudentCodeUtils } = require('../utils/waziper');
 
 
@@ -1169,12 +1171,16 @@ const updateTeacher = async (req, res) => {
     const teacher = await Teacher.findById(id);
     if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
 
+    // Get old courses for comparison
+    const oldCourses = [...teacher.courses];
+
     // Update basic fields
     teacher.teacherName = teacherName;
     teacher.teacherPhoneNumber = teacherPhoneNumber;
     teacher.subjectName = subjectName;
     teacher.teacherFees = teacherFees;
     teacher.courses = courses;
+    
     // Update schedule
     if (schedule && Array.isArray(schedule)) {
       const formattedSchedule = schedule.reduce((acc, slot) => {
@@ -1188,10 +1194,148 @@ const updateTeacher = async (req, res) => {
     }
 
     await teacher.save();
-    res.status(200).json({ message: 'Teacher updated successfully', teacher });
+
+    // Update course names across all related models
+    const courseUpdates = await updateCourseNamesAcrossModels(id, oldCourses, courses);
+
+    res.status(200).json({ 
+      message: 'Teacher updated successfully', 
+      teacher,
+      courseUpdates 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'حدث خطأ ما، يرجى المحاولة مرة أخرى.' });
+  }
+};
+
+// Helper function to update course names across all models
+const updateCourseNamesAcrossModels = async (teacherId, oldCourses, newCourses) => {
+  try {
+    // Create a mapping of old course names to new course names
+    const courseMapping = {};
+    const deletedCourses = [];
+    
+    // Handle course name changes by position and by exact match
+    for (let i = 0; i < Math.max(oldCourses.length, newCourses.length); i++) {
+      const oldCourse = oldCourses[i];
+      const newCourse = newCourses[i];
+      
+      if (oldCourse && newCourse && oldCourse !== newCourse) {
+        courseMapping[oldCourse] = newCourse;
+      }
+    }
+
+    // Find deleted courses (courses that exist in oldCourses but not in newCourses)
+    for (const oldCourse of oldCourses) {
+      if (!newCourses.includes(oldCourse)) {
+        deletedCourses.push(oldCourse);
+      }
+    }
+
+    // If no changes detected, return early
+    if (Object.keys(courseMapping).length === 0 && deletedCourses.length === 0) {
+      console.log('No course changes detected');
+      return;
+    }
+
+    console.log('Course name changes:', courseMapping);
+    console.log('Deleted courses:', deletedCourses);
+
+    // Update course names in Student model
+    const students = await Student.find({
+      'selectedTeachers.teacherId': teacherId
+    });
+
+    let studentsUpdated = 0;
+    let studentsWithDeletedCourses = 0;
+    
+    for (const student of students) {
+      let studentUpdated = false;
+      let hasDeletedCourses = false;
+      
+      for (const selectedTeacher of student.selectedTeachers) {
+        if (selectedTeacher.teacherId.toString() === teacherId.toString()) {
+          // Handle course name changes
+          for (const course of selectedTeacher.courses) {
+            if (courseMapping[course.courseName]) {
+              console.log(`Updating student ${student.studentName}: ${course.courseName} -> ${courseMapping[course.courseName]}`);
+              course.courseName = courseMapping[course.courseName];
+              studentUpdated = true;
+            }
+          }
+          
+          // Handle deleted courses - remove them from student's course list
+          if (deletedCourses.length > 0) {
+            const originalLength = selectedTeacher.courses.length;
+            selectedTeacher.courses = selectedTeacher.courses.filter(
+              course => !deletedCourses.includes(course.courseName)
+            );
+            
+            if (selectedTeacher.courses.length < originalLength) {
+              console.log(`Removed deleted courses from student ${student.studentName}`);
+              studentUpdated = true;
+              hasDeletedCourses = true;
+            }
+          }
+        }
+      }
+      
+      if (studentUpdated) {
+        await student.save();
+        studentsUpdated++;
+        if (hasDeletedCourses) {
+          studentsWithDeletedCourses++;
+        }
+      }
+    }
+
+    // Update course names in Attendance model
+    const attendances = await Attendance.find({ teacher: teacherId });
+    let attendancesUpdated = 0;
+    let attendancesWithDeletedCourses = 0;
+    
+    for (const attendance of attendances) {
+      let attendanceUpdated = false;
+      
+      // Handle course name changes
+      if (courseMapping[attendance.course]) {
+        console.log(`Updating attendance: ${attendance.course} -> ${courseMapping[attendance.course]}`);
+        attendance.course = courseMapping[attendance.course];
+        attendanceUpdated = true;
+      }
+      
+      // Handle deleted courses - mark attendance as inactive or add note
+      if (deletedCourses.includes(attendance.course)) {
+        console.log(`Marking attendance for deleted course: ${attendance.course}`);
+        // You can add a field to mark as inactive or add a note
+        attendance.courseDeleted = true;
+        attendance.deletedCourseName = attendance.course;
+        attendance.course = `[DELETED] ${attendance.course}`;
+        attendanceUpdated = true;
+        attendancesWithDeletedCourses++;
+      }
+      
+      if (attendanceUpdated) {
+        await attendance.save();
+        attendancesUpdated++;
+      }
+    }
+
+    console.log(`Course updates completed:`);
+    console.log(`- ${studentsUpdated} students updated (${studentsWithDeletedCourses} had deleted courses)`);
+    console.log(`- ${attendancesUpdated} attendances updated (${attendancesWithDeletedCourses} marked as deleted courses)`);
+    
+    return {
+      studentsUpdated,
+      studentsWithDeletedCourses,
+      attendancesUpdated,
+      attendancesWithDeletedCourses,
+      deletedCourses
+    };
+  } catch (error) {
+    console.error('Error updating course names across models:', error);
+    throw error;
   }
 };
 
@@ -3576,31 +3720,32 @@ const getStudentLogsData = async (req, res) => {
 // ======================== WhatsApp Admin Session Connect (Strict) ======================== //
 const connectWhatsApp_Get = async (req, res) => {
   try {
-    // Only allow the single fixed number
-    const adminNumber = waService.DEFAULT_ADMIN_PHONE;
-    // Try to fetch session; if missing or not connected, show connect page
-    let sessionInfo = null;
-    try {
-      sessionInfo = await waService.getAdminSessionStrict();
-    } catch (e) {
-      sessionInfo = null;
-    }
-    const status = (sessionInfo && sessionInfo.status) ? sessionInfo.status : 'DISCONNECTED';
+    // Get session status using the new function
+    const statusResult = await waService.getSessionStatus(waService.DEFAULT_ADMIN_SESSION_API_KEY);
+    
     res.render('employee/connectWhatsapp', {
       title: 'Connect WhatsApp',
       path: '/employee/connect-whatsapp',
-      adminNumber,
-      status,
+      adminNumber: 'Session API Key Based',
+      status: statusResult.status || 'DISCONNECTED',
+      sessionInfo: statusResult.success ? statusResult.data : null
     });
   } catch (error) {
-    res.status(500).send('Error loading WhatsApp connect page');
+    console.error('Error loading WhatsApp connect page:', error);
+    res.render('employee/connectWhatsapp', {
+      title: 'Connect WhatsApp',
+      path: '/employee/connect-whatsapp',
+      adminNumber: 'Session API Key Based',
+      status: 'ERROR',
+      sessionInfo: null
+    });
   }
 };
 
 const connectWhatsApp_Start = async (req, res) => {
   try {
-    // Ensure only the fixed number is allowed
-    const connectResp = await waService.connectAdminSession();
+    // Connect using session API key
+    const connectResp = await waService.connectAdminSession(waService.DEFAULT_ADMIN_SESSION_API_KEY);
     if (!connectResp.success) {
       return res.status(400).json({ success: false, message: connectResp.message || 'Failed to start connection' });
     }
@@ -3612,7 +3757,7 @@ const connectWhatsApp_Start = async (req, res) => {
 
 const connectWhatsApp_QR = async (req, res) => {
   try {
-    const qrResp = await waService.getAdminQRCode();
+    const qrResp = await waService.getAdminQRCode(waService.DEFAULT_ADMIN_SESSION_API_KEY);
     if (!qrResp.success) {
       return res.status(400).json({ success: false, message: qrResp.message || 'Failed to get QR code' });
     }
@@ -3629,7 +3774,6 @@ const connectWhatsApp_QR = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error getting QR code' });
   }
 };
-
 
 module.exports = {
   dashboard,

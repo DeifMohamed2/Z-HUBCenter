@@ -302,9 +302,11 @@ function addEditCourseView(courseName = '') {
   newCourseDiv.className = 'row mb-2';
   newCourseDiv.innerHTML = `
     <div class="col-md-4">
-      <input type="text" class="form-control" name="editCourses[]" style="border: 2px solid black; width: 100%; text-align: center;" value="${courseName}" placeholder="اسم الكورس" required readonly>
+      <input type="text" class="form-control" name="editCourses[]" style="border: 2px solid black; width: 100%; text-align: center;" value="${courseName}" placeholder="اسم الكورس" required>
     </div>
-
+    <div class="col-md-2">
+      <button type="button" class="btn btn-outline-danger" onclick="removeEditCourse(this)">- إزالة</button>
+    </div>
   `;
 
   editCoursesContainer.appendChild(newCourseDiv);
@@ -344,7 +346,18 @@ function removeTimeSlot(button) {
 
 // Function to remove course
 function removeEditCourse(button) {
-  button.closest('.row').remove();
+  const courseName = button.closest('.row').querySelector('input[name="editCourses[]"]').value;
+  
+  if (courseName && courseName.trim() !== '') {
+    const confirmed = confirm(`هل أنت متأكد من حذف الكورس "${courseName}"؟\n\nسيتم:\n- إزالة هذا الكورس من جميع الطلاب المسجلين فيه\n- وضع علامة على سجلات الحضور المرتبطة بهذا الكورس\n\nهل تريد المتابعة؟`);
+    
+    if (confirmed) {
+      button.closest('.row').remove();
+    }
+  } else {
+    // If course name is empty, just remove without confirmation
+    button.closest('.row').remove();
+  }
 }
 
 
@@ -414,6 +427,11 @@ saveTeacherBtn.addEventListener('click', async () => {
     schedule,
   };
 
+  // Show loading state
+  const originalText = saveTeacherBtn.innerHTML;
+  saveTeacherBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Updating...';
+  saveTeacherBtn.disabled = true;
+
   try {
     const response = await fetch(`/employee/update-teacher/${teacherId}`, {
       method: 'PUT',
@@ -423,11 +441,37 @@ saveTeacherBtn.addEventListener('click', async () => {
 
     if (!response.ok) throw new Error('Failed to update teacher');
 
-    alert('Teacher updated successfully');
-    window.location.reload(); // Refresh table or page
+    const result = await response.json();
+    
+    // Show detailed success message
+    let message = 'Teacher updated successfully!';
+    if (result.courseUpdates) {
+      const { studentsUpdated, studentsWithDeletedCourses, attendancesUpdated, attendancesWithDeletedCourses, deletedCourses } = result.courseUpdates;
+      
+      if (deletedCourses && deletedCourses.length > 0) {
+        message += `\n\nDeleted courses: ${deletedCourses.join(', ')}`;
+        message += `\n- ${studentsWithDeletedCourses} students had these courses removed`;
+        message += `\n- ${attendancesWithDeletedCourses} attendance records marked as deleted`;
+      }
+      
+      if (studentsUpdated > 0 || attendancesUpdated > 0) {
+        message += `\n\nTotal updates: ${studentsUpdated} students, ${attendancesUpdated} attendance records`;
+      }
+    }
+    
+    alert(message);
+    
+    // Close modal and refresh
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editTeacherModal'));
+    modal.hide();
+    window.location.reload();
   } catch (error) {
     console.error('Error updating teacher:', error);
-    alert('Failed to update teacher.');
+    alert('Failed to update teacher. Please try again.');
+  } finally {
+    // Restore button state
+    saveTeacherBtn.innerHTML = originalText;
+    saveTeacherBtn.disabled = false;
   }
 });
 
