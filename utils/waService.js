@@ -6,7 +6,7 @@ const wasender = require('./wasender');
 // Default session API key for the admin WhatsApp session
 // IMPORTANT: Replace 'YOUR_SESSION_API_KEY' with the actual session API key from your Wasender dashboard
 // This ensures only the specific WhatsApp session can send messages, avoiding conflicts
-const DEFAULT_ADMIN_SESSION_API_KEY = '';
+const DEFAULT_ADMIN_SESSION_API_KEY = '9e57cd51e21237b7b76fe30a719d2eb380eaba26f2a928548cc1e6794e434781';
 // Base URL to serve public files (Excel, etc.)
 const APP_BASE_URL =  'https://elkablycentersystem.online';
 
