@@ -2519,6 +2519,147 @@ const sendToAbsences = async (req, res) => {
   }
 };
 
+const downloadAbsentStudentsExcel = async (req, res) => {
+  const { teacherId, courseName } = req.query;
+  
+  if (!teacherId || !courseName) {
+    return res.status(400).json({ message: 'Teacher ID and course name are required' });
+  }
+
+  try {
+    // Get today's date
+    const todayDate = getDateTime();
+    
+    // Find today's attendance record for this teacher and course
+    const attendance = await Attendance.findOne({
+      date: todayDate,
+      teacher: teacherId,
+      course: courseName,
+    });
+
+    // Get all students enrolled in this course with this teacher
+    const enrolledStudents = await Student.find({
+      'selectedTeachers.teacherId': teacherId,
+      'selectedTeachers.courses.courseName': courseName
+    }).populate('selectedTeachers.teacherId', 'teacherName');
+
+    if (enrolledStudents.length === 0) {
+      return res.status(404).json({ message: 'لا يوجد طلاب مسجلين في هذا الكورس' });
+    }
+
+    // Get list of students who attended today
+    const attendedStudentIds = attendance ? attendance.studentsPresent.map(sp => sp.student.toString()) : [];
+    
+    // Filter out students who attended today (they are not absent)
+    const absentStudents = enrolledStudents.filter(student => {
+      return !attendedStudentIds.includes(student._id.toString());
+    });
+
+    if (absentStudents.length === 0) {
+      return res.status(200).json({ 
+        message: 'جميع الطلاب المسجلين في الكورس قد حضروا اليوم',
+        absentCount: 0
+      });
+    }
+
+    // Get teacher information
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return res.status(404).json({ message: 'المدرس غير موجود' });
+    }
+
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Absent Students');
+
+    // Define styles
+    const styles = {
+      header: {
+        font: { bold: true, color: { argb: 'FFFFFF' }, size: 16 },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: '4472C4' },
+        },
+      },
+      columnHeader: {
+        font: { bold: true, color: { argb: 'FFFFFF' }, size: 12 },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: '2E75B6' },
+        },
+      },
+      cell: {
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        },
+      },
+    };
+
+    // Add report title
+    worksheet.mergeCells('A1:F1');
+    worksheet.getCell('A1').value = `كشف الطلاب الغائبين - ${teacher.teacherName} - ${courseName} - ${new Date().toLocaleDateString('ar-EG')}`;
+    worksheet.getCell('A1').style = styles.header;
+
+    let rowIndex = 2;
+
+    // Add column headers
+    worksheet.getRow(rowIndex).values = [
+      '#',
+      'اسم الطالب',
+      'كود الطالب',
+      'رقم هاتف الطالب',
+      'رقم هاتف ولي الأمر',
+      'اسم المدرسة'
+    ];
+    worksheet.getRow(rowIndex).eachCell((cell) => (cell.style = styles.columnHeader));
+    rowIndex++;
+
+    // Add absent students data
+    absentStudents.forEach((student, index) => {
+      worksheet.getRow(rowIndex).values = [
+        index + 1,
+        student.studentName,
+        student.studentCode,
+        student.studentPhoneNumber,
+        student.studentParentPhone,
+        student.schoolName || '-'
+      ];
+      worksheet.getRow(rowIndex).eachCell((cell) => (cell.style = styles.cell));
+      rowIndex++;
+    });
+
+    // Set column widths
+    worksheet.columns = [
+      { width: 10 },  // #
+      { width: 25 },  // Student Name
+      { width: 15 },  // Student Code
+      { width: 20 },  // Student Phone
+      { width: 20 },  // Parent Phone
+      { width: 25 }   // School Name
+    ];
+
+    // Set response headers for file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="absent-students-${courseName}-${new Date().toISOString().split('T')[0]}.xlsx"`);
+
+    // Write workbook to response
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error('Error downloading absent students Excel:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء تحميل ملف الغياب' });
+  }
+};
+
 // ======================================== End Attendance ======================================== //
 
 
@@ -3817,6 +3958,7 @@ module.exports = {
   deleteInvoice,
   updateInvoice,
   sendToAbsences,
+  downloadAbsentStudentsExcel,
 
   // handel Attendance
   handelAttendance,

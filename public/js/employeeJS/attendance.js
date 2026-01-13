@@ -17,6 +17,7 @@ const invoiceTBody = document.querySelector('#invoiceTable tbody');
 const downloadExcelBtn = document.getElementById('downloadExcelBtn');
 const viewDeletedStudentsBtn = document.getElementById('viewDeletedStudentsBtn');
 const mockCheck = document.getElementById('mockCheck');
+const downloadAbsencesBtn = document.getElementById('downloadAbsencesBtn');
 
 const deviceSelect = document.getElementById('deviceSelect');
 let temp3Student = 0;
@@ -740,9 +741,90 @@ viewDeletedStudentsBtn.addEventListener('click', async () => {
       icon: 'error',
       title: 'خطأ',
       text: 'حدث خطأ أثناء جلب الطلاب المحذوفين'
-    });
-  }
+        });
+    }
 });
+
+// Download Absent Students Excel
+if (downloadAbsencesBtn) {
+    downloadAbsencesBtn.addEventListener('click', async () => {
+        try {
+            const courseSelection = courseSelction.value;
+            if (!courseSelection) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'تحذير',
+                    text: 'يرجى اختيار الكورس أولاً'
+                });
+                return;
+            }
+
+            const [teacherId, courseName] = courseSelection.split('_');
+            
+            spinner.classList.remove('d-none');
+            downloadAbsencesBtn.innerHTML = 'جاري التحميل...';
+            downloadAbsencesBtn.disabled = true;
+            
+            const response = await fetch(`/employee/download-absent-students-excel?teacherId=${teacherId}&courseName=${courseName}`);
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to download absent students Excel file');
+            }
+            
+            // Check if response is JSON (error case)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const errorData = await response.json();
+                Swal.fire({
+                    icon: 'info',
+                    title: 'معلومة',
+                    text: errorData.message || 'لا يوجد طلاب غائبين'
+                });
+                spinner.classList.add('d-none');
+                downloadAbsencesBtn.innerHTML = '<i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;تحميل الغياب';
+                downloadAbsencesBtn.disabled = false;
+                return;
+            }
+            
+            // Download the Excel file
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const date = new Date().toLocaleDateString('ar-EG').replace(/\//g, '-');
+            a.download = `كشف الطلاب الغائبين - ${courseName} - ${date}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            spinner.classList.add('d-none');
+            downloadAbsencesBtn.innerHTML = '<i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;تحميل الغياب';
+            downloadAbsencesBtn.disabled = false;
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'تم التحميل بنجاح',
+                text: 'تم تحميل ملف الطلاب الغائبين بنجاح',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            
+        } catch (error) {
+            console.error('Error downloading absent students Excel:', error);
+            spinner.classList.add('d-none');
+            downloadAbsencesBtn.innerHTML = '<i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;تحميل الغياب';
+            downloadAbsencesBtn.disabled = false;
+            Swal.fire({
+                icon: 'error',
+                title: 'خطأ في التحميل',
+                text: error.message || 'حدث خطأ أثناء تحميل ملف الغياب',
+                confirmButtonText: 'حسناً'
+            });
+        }
+    });
+}
 
 // Function to show deleted students modal
 function showDeletedStudentsModal(deletedStudents) {

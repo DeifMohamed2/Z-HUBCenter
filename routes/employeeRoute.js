@@ -128,6 +128,8 @@ router.put('/update-invoice/:invoiceId', authMiddleware, employeeController.upda
 
 router.post('/send-to-absences', authMiddleware, employeeController.sendToAbsences);
 
+router.get('/download-absent-students-excel', authMiddleware, employeeController.downloadAbsentStudentsExcel);
+
 // handel Attendance
 
 router.get('/handel-attendance', authMiddleware, employeeController.handelAttendance);
