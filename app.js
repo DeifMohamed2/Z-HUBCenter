@@ -1,13 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
-const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 const MongoStore = require('connect-mongo');
 const session = require('express-session');
 const cors = require('cors');
 const fileUpload = require('express-fileupload');
 const path = require('path');
+const { connectDB } = require('./config/db');
 
 const mainRoute = require('./routes/mainRoute');
 const adminRoute = require('./routes/adminRoute');
@@ -21,10 +21,7 @@ app.use(express.json());
 // let io
 // const dbURI = 'mongodb://localhost:27017/ElkablyCenter';
 
-
-const dbURI ='mongodb+srv://deif:1qaz2wsx@3devway.aa4i6ga.mongodb.net/ZHUBCenter?retryWrites=true&w=majority&appName=Cluster0';
-mongoose
-  .connect(dbURI)
+connectDB()
   .then((result) => {
     app.listen(8601);
 
@@ -58,7 +55,7 @@ app.use(
     resave: false,
     saveUninitialized: true,
     store: MongoStore.create({
-      mongoUrl: dbURI,
+      clientPromise: connectDB(),
     }),
   })
 );
